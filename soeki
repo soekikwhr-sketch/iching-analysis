@@ -1,0 +1,958 @@
+<!DOCTYPE <!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>易経 六十四卦 — PCA 3D Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Serif+JP:wght@300;400&display=swap');
+  :root{--bg:#04050a;--accent:#00ffe0;--accent2:#ff6b35;--accent3:#a855f7;--text:#c8d8e8;--dim:#3a4a5a;--panel:rgba(8,14,24,0.92);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow:hidden;width:100vw;height:100vh;}
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:1000;}
+  #canvas{position:fixed;inset:0;cursor:grab;}
+  #canvas:active{cursor:grabbing;}
+  .hud-top{position:fixed;top:0;left:0;right:0;padding:0.8rem 1.4rem;display:flex;justify-content:space-between;align-items:center;z-index:100;background:linear-gradient(to bottom,rgba(4,5,10,0.95),transparent);pointer-events:none;}
+  .title-main{font-family:'Noto Serif JP',serif;font-weight:300;font-size:1.1rem;color:var(--accent);letter-spacing:0.3em;text-shadow:0 0 20px rgba(0,255,224,0.4);}
+  .title-sub{font-size:0.62rem;color:var(--dim);letter-spacing:0.15em;margin-top:2px;}
+  .variance-badges{display:flex;gap:0.8rem;}
+  .badge{font-size:0.65rem;padding:0.25rem 0.6rem;border-radius:2px;letter-spacing:0.1em;}
+  .badge-x{background:rgba(255,107,53,0.15);border:1px solid var(--accent2);color:var(--accent2);}
+  .badge-y{background:rgba(0,255,224,0.1);border:1px solid var(--accent);color:var(--accent);}
+  .badge-z{background:rgba(168,85,247,0.12);border:1px solid var(--accent3);color:var(--accent3);}
+  #bit-search{position:fixed;top:4rem;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:0.6rem;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:0.4rem 0.9rem;backdrop-filter:blur(8px);}
+  #bit-label{font-size:0.6rem;color:var(--dim);letter-spacing:0.1em;white-space:nowrap;}
+  #bit-input{font-family:'Share Tech Mono',monospace;font-size:1.1rem;letter-spacing:0.4em;background:transparent;border:none;outline:none;color:var(--accent);width:7em;caret-color:var(--accent);}
+  #bit-input::placeholder{color:var(--dim);font-size:0.9rem;letter-spacing:0.2em;}
+  #bit-result{font-size:0.65rem;color:var(--accent2);min-width:5em;}
+  .hud-bottom{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);display:flex;gap:0.6rem;z-index:100;align-items:center;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:0.5rem 0.9rem;backdrop-filter:blur(8px);}
+  .ctrl-btn{font-family:'Share Tech Mono',monospace;font-size:0.68rem;background:transparent;border:1px solid var(--dim);color:var(--text);padding:0.3rem 0.7rem;cursor:pointer;letter-spacing:0.1em;transition:all 0.2s;border-radius:2px;}
+  .ctrl-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .ctrl-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,224,0.08);}
+  .k-ctrl{display:flex;align-items:center;gap:0.4rem;font-size:0.68rem;color:var(--dim);}
+  .k-ctrl input[type=range]{accent-color:var(--accent);width:80px;}
+  .k-val{color:var(--accent);min-width:1em;}
+  #info-panel{position:fixed;right:1rem;top:4.5rem;width:260px;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:1rem;z-index:100;display:none;backdrop-filter:blur(8px);max-height:calc(100vh - 12rem);overflow-y:auto;}
+  #info-panel.visible{display:block;}
+  .info-symbol{font-size:3rem;text-align:center;margin-bottom:0.5rem;line-height:1;}
+  .info-name{font-family:'Noto Serif JP',serif;font-size:1rem;color:var(--accent);text-align:center;letter-spacing:0.2em;margin-bottom:0.5rem;}
+  .info-trigrams{font-size:0.68rem;text-align:center;color:var(--dim);margin-bottom:0.6rem;}
+  .info-bits{font-size:1.1rem;text-align:center;letter-spacing:0.3em;margin-bottom:0.2rem;}
+  .info-bits-label{font-size:0.56rem;text-align:center;color:var(--dim);margin-bottom:0.7rem;}
+  .info-row{font-size:0.65rem;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:0.3rem;}
+  .info-row span:last-child{color:var(--text);}
+  .info-sep{border:none;border-top:1px solid var(--dim);margin:0.6rem 0;}
+  .neighbor-item{font-size:0.62rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;gap:0.3rem;}
+  .neighbor-left{display:flex;align-items:center;gap:0.3rem;}
+  .neighbor-line{color:var(--dim);font-size:0.58rem;width:2.2em;flex-shrink:0;}
+  .neighbor-name{color:var(--text);}
+  .legend{position:fixed;left:1rem;top:50%;transform:translateY(-50%);z-index:100;pointer-events:none;}
+  .legend-title{font-size:0.58rem;color:var(--dim);letter-spacing:0.15em;margin-bottom:0.5rem;}
+  .legend-item{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;}
+  .legend-label{font-size:0.6rem;color:var(--dim);}
+  .hint{position:fixed;left:1rem;bottom:3.5rem;font-size:0.6rem;color:var(--dim);pointer-events:none;z-index:100;}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="hud-top">
+  <div>
+    <div class="title-main">六十四卦　三次元主成分分析</div>
+    <div class="title-sub">PCA · HAMMING DISTANCE · 初爻(左) → 上爻(右)</div>
+  </div>
+  <div class="variance-badges">
+    <div class="badge badge-x" id="badge-pc1">PC1: —</div>
+    <div class="badge badge-y" id="badge-pc2">PC2: —</div>
+    <div class="badge badge-z" id="badge-pc3">PC3: —</div>
+  </div>
+</div>
+<div id="bit-search">
+  <span id="bit-label">初爻→上爻:</span>
+  <input id="bit-input" maxlength="6" placeholder="000000" spellcheck="false"/>
+  <span id="bit-result"></span>
+</div>
+<div class="legend" id="legend"></div>
+<div id="info-panel">
+  <div class="info-symbol" id="ip-sym">䷀</div>
+  <div class="info-name" id="ip-name">乾</div>
+  <div class="info-trigrams" id="ip-tri">下: 乾　上: 乾</div>
+  <div class="info-bits" id="ip-bits">111111</div>
+  <div class="info-bits-label">← 初爻　　上爻 →</div>
+  <div class="info-row"><span>番号</span><span id="ip-num">1</span></div>
+  <div class="info-row"><span>陽爻数</span><span id="ip-yang">6</span></div>
+  <div class="info-row"><span>10進</span><span id="ip-dec">63</span></div>
+  <div class="info-row"><span>クラスタ</span><span id="ip-cluster">—</span></div>
+  <div class="info-row"><span>PC1</span><span id="ip-pc1">—</span></div>
+  <div class="info-row"><span>PC2</span><span id="ip-pc2">—</span></div>
+  <div class="info-row"><span>PC3</span><span id="ip-pc3">—</span></div>
+  <hr class="info-sep">
+  <div style="font-size:0.6rem;color:var(--dim);margin-bottom:0.2rem;letter-spacing:0.1em">変爻（上爻→初爻）</div>
+  <div style="font-size:0.56rem;margin-bottom:0.4rem;display:flex;gap:0.6rem;">
+    <span style="color:#f5c518">クラスタ</span>
+    <span style="color:#00ffe0">中心距離</span>
+  </div>
+  <div id="ip-neighbors"></div>
+</div>
+<div class="hud-bottom">
+  <button class="ctrl-btn active" id="btn-rotate" onclick="toggleRotate()">⟳ 自動回転</button>
+  <button class="ctrl-btn" id="btn-axes" onclick="toggleAxes()">座標軸</button>
+  <button class="ctrl-btn" onclick="resetCamera()">リセット</button>
+  <div class="k-ctrl">
+    <span>k:</span>
+    <input type="range" id="sl-k" min="2" max="8" step="1" value="4">
+    <span class="k-val" id="vl-k">4</span>
+  </div>
+</div>
+<div class="hint">ドラッグ: 回転　スクロール: ズーム　クリック: 卦を選択</div>
+
+<script>
+const TG={ken:[1,1,1],da:[1,1,0],ri:[1,0,1],sin:[1,0,0],son:[0,1,1],kan:[0,1,0],gon:[0,0,1],kon:[0,0,0]};
+const TN={ken:'乾',da:'兌',ri:'離',sin:'震',son:'巽',kan:'坎',gon:'艮',kon:'坤'};
+const TKEYS=['ken','da','ri','sin','son','kan','gon','kon'];
+function mk(lo,hi){return[...TG[lo],...TG[hi]];}
+const HEX_RAW=[
+  [ 1,'䷀','乾','ken','ken'],[ 2,'䷁','坤','kon','kon'],[ 3,'䷂','屯','sin','kan'],
+  [ 4,'䷃','蒙','kan','gon'],[ 5,'䷄','需','ken','kan'],[ 6,'䷅','訟','kan','ken'],
+  [ 7,'䷆','師','kan','kon'],[ 8,'䷇','比','kon','kan'],[ 9,'䷈','小畜','ken','son'],
+  [10,'䷉','履','da','ken'],[11,'䷊','泰','ken','kon'],[12,'䷋','否','kon','ken'],
+  [13,'䷌','同人','ri','ken'],[14,'䷍','大有','ken','ri'],[15,'䷎','謙','gon','kon'],
+  [16,'䷏','豫','kon','sin'],[17,'䷐','随','sin','da'],[18,'䷑','蠱','son','gon'],
+  [19,'䷒','臨','da','kon'],[20,'䷓','観','kon','son'],[21,'䷔','噬嗑','sin','ri'],
+  [22,'䷕','賁','ri','gon'],[23,'䷖','剥','kon','gon'],[24,'䷗','復','sin','kon'],
+  [25,'䷘','無妄','sin','ken'],[26,'䷙','大畜','ken','gon'],[27,'䷚','頤','sin','gon'],
+  [28,'䷛','大過','son','da'],[29,'䷜','坎','kan','kan'],[30,'䷝','離','ri','ri'],
+  [31,'䷞','咸','gon','da'],[32,'䷟','恒','son','sin'],[33,'䷠','遯','gon','ken'],
+  [34,'䷡','大壮','ken','sin'],[35,'䷢','晋','kon','ri'],[36,'䷣','明夷','ri','kon'],
+  [37,'䷤','家人','ri','son'],[38,'䷥','睽','da','ri'],[39,'䷦','蹇','gon','kan'],
+  [40,'䷧','解','kan','sin'],[41,'䷨','損','da','gon'],[42,'䷩','益','sin','son'],
+  [43,'䷪','夬','ken','da'],[44,'䷫','姤','son','ken'],[45,'䷬','萃','kon','da'],
+  [46,'䷭','升','son','kon'],[47,'䷮','困','kan','da'],[48,'䷯','井','son','kan'],
+  [49,'䷰','革','ri','da'],[50,'䷱','鼎','son','ri'],[51,'䷲','震','sin','sin'],
+  [52,'䷳','艮','gon','gon'],[53,'䷴','漸','gon','son'],[54,'䷵','帰妹','da','sin'],
+  [55,'䷶','豊','ri','sin'],[56,'䷷','旅','gon','ri'],[57,'䷸','巽','son','son'],
+  [58,'䷹','兌','da','da'],[59,'䷺','渙','kan','son'],[60,'䷻','節','da','kan'],
+  [61,'䷼','中孚','da','son'],[62,'䷽','小過','gon','sin'],[63,'䷾','既済','ri','kan'],
+  [64,'䷿','未済','kan','ri'],
+];
+const HEX=HEX_RAW.map(([num,sym,name,lo,hi])=>({num,sym,name,lo,hi,bits:mk(lo,hi)}));
+const N=64;
+const lineNames=['初爻','二爻','三爻','四爻','五爻','上爻'];
+const PALETTE=['#2cb67d','#0a6aff','#ff6b35','#f5c518','#a855f7','#e040fb','#ff9800','#00bcd4'];
+
+function yang(bits){return bits.reduce((a,b)=>a+b,0);}
+function hamming(a,b){let d=0;for(let i=0;i<6;i++)if(a[i]!==b[i])d++;return d;}
+function toDec(bits){return bits.reduce((a,b,i)=>a+b*(1<<i),0);}
+function bitsYang(bits){return bits.reduce((a,b)=>a+b,0);}
+
+// k-means
+function kmeans(k){
+  const centIdx=[0];
+  while(centIdx.length<k){
+    let best=-1,bd=-1;
+    for(let i=0;i<N;i++){
+      if(centIdx.includes(i))continue;
+      const d=Math.min(...centIdx.map(c=>hamming(HEX[i].bits,HEX[c].bits)));
+      if(d>bd){bd=d;best=i;}
+    }
+    centIdx.push(best);
+  }
+  let cents=centIdx.map(i=>HEX[i].bits.slice());
+  let labels=Array(N).fill(0);
+  for(let iter=0;iter<200;iter++){
+    const nl=HEX.map(h=>{
+      let best=0,bd=Infinity;
+      cents.forEach((c,i)=>{const d=hamming(h.bits,c);if(d<bd){bd=d;best=i;}});
+      return best;
+    });
+    const nc=Array.from({length:k},(_,c)=>{
+      const mb=HEX.filter((_,i)=>nl[i]===c);
+      if(mb.length===0)return cents[c];
+      return Array.from({length:6},(_,j)=>{
+        const ones=mb.filter(h=>h.bits[j]===1).length;
+        return ones>mb.length/2?1:0;
+      });
+    });
+    if(nl.every((l,i)=>l===labels[i]))break;
+    labels=nl;cents=nc;
+  }
+  // 陽爻数平均でソート
+  const avgY=Array.from({length:k},(_,c)=>{
+    const mb=HEX.filter((_,i)=>labels[i]===c);
+    return mb.length>0?mb.reduce((s,h)=>s+yang(h.bits),0)/mb.length:0;
+  });
+  const order=[...Array(k).keys()].sort((a,b)=>avgY[a]-avgY[b]);
+  const remap=Array(k);order.forEach((orig,newC)=>remap[orig]=newC);
+  // セントロイドもソート順に並べ替え
+  const sortedCents=Array(k);
+  order.forEach((orig,newC)=>sortedCents[newC]=cents[orig]);
+  return{labels:labels.map(l=>remap[l]),labelsOrig:labels,cents:sortedCents,k};
+}
+
+let clusterData=kmeans(4);
+
+function updateLegend(k){
+  const members=Array.from({length:k},(_,c)=>HEX.filter((_,i)=>clusterData.labels[i]===c));
+  document.getElementById('legend').innerHTML=
+    `<div class="legend-title">k-means k=${k}</div>`+
+    members.map((mb,c)=>{
+      const avgY=(mb.reduce((s,h)=>s+yang(h.bits),0)/mb.length).toFixed(1);
+      return `<div class="legend-item"><div class="legend-dot" style="background:${PALETTE[c%8]}"></div><div class="legend-label">C${c+1}（陽均${avgY}）</div></div>`;
+    }).join('');
+}
+updateLegend(4);
+
+// PCA
+const D=Array.from({length:N},(_,i)=>Array.from({length:N},(_,j)=>hamming(HEX[i].bits,HEX[j].bits)));
+function pca3(){
+  const n=N;
+  const D2=D.map(r=>r.map(v=>v*v));
+  const rm=D2.map(r=>r.reduce((a,b)=>a+b,0)/n);
+  const cm=Array.from({length:n},(_,j)=>D2.reduce((s,r)=>s+r[j],0)/n);
+  const gm=rm.reduce((a,b)=>a+b,0)/n;
+  const B=D2.map((r,i)=>r.map((v,j)=>-0.5*(v-rm[i]-cm[j]+gm)));
+  let Mc=B.map(r=>[...r]);
+  const vecs=[],vals=[];
+  for(let ki=0;ki<3;ki++){
+    let v=Array.from({length:n},(_,i)=>Math.sin(ki*1.3+i*0.7));
+    let nm=Math.sqrt(v.reduce((a,x)=>a+x*x,0));v=v.map(x=>x/nm);
+    let lam=0;
+    for(let it=0;it<600;it++){
+      const Mv=Mc.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+      lam=Math.sqrt(Mv.reduce((a,x)=>a+x*x,0));
+      if(lam<1e-10)break;v=Mv.map(x=>x/lam);
+    }
+    vecs.push(v);vals.push(lam);
+    Mc.forEach((r,i)=>r.forEach((_,j)=>{Mc[i][j]-=lam*v[i]*v[j];}));
+  }
+  const coords=Array.from({length:n},(_,i)=>vecs.map((v,k)=>v[i]*Math.sqrt(Math.max(0,vals[k]))));
+  const yng=HEX.map(h=>h.bits.reduce((a,b)=>a+b,0));
+  for(let k=0;k<3;k++){
+    const cor=coords.reduce((s,c,i)=>s+c[k]*yng[i],0);
+    if(cor<0)coords.forEach(c=>c[k]=-c[k]);
+  }
+  for(let k=0;k<3;k++){
+    const mx=Math.max(...coords.map(c=>Math.abs(c[k])));
+    if(mx>0)coords.forEach(c=>c[k]=c[k]/mx);
+  }
+  const tv=B.reduce((a,r)=>a+r.reduce((s,x)=>s+x*x,0),0);
+  const ve=vals.map(v=>(v*v/tv)*100);
+  return{coords,ve};
+}
+const{coords,ve}=pca3();
+document.getElementById('badge-pc1').textContent=`PC1: ${ve[0].toFixed(1)}%`;
+document.getElementById('badge-pc2').textContent=`PC2: ${ve[1].toFixed(1)}%`;
+document.getElementById('badge-pc3').textContent=`PC3: ${ve[2].toFixed(1)}%`;
+
+// スライダー
+document.getElementById('sl-k').addEventListener('input',function(){
+  const k=parseInt(this.value);
+  document.getElementById('vl-k').textContent=k;
+  clusterData=kmeans(k);
+  updateLegend(k);
+  if(selIdx!==null)updatePanel();
+});
+
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+
+let rotX=0.35,rotY=0.55,zoom=1.0,autoRotate=true,showAxes=false,selIdx=null;
+let drag=false,lmx=0,lmy=0;
+
+canvas.addEventListener('mousedown',e=>{drag=true;lmx=e.clientX;lmy=e.clientY;autoRotate=false;document.getElementById('btn-rotate').classList.remove('active');});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  rotY+=(e.clientX-lmx)*0.008;rotX+=(e.clientY-lmy)*0.008;
+  rotX=Math.max(-1.4,Math.min(1.4,rotX));lmx=e.clientX;lmy=e.clientY;
+});
+canvas.addEventListener('wheel',e=>{zoom*=e.deltaY>0?0.93:1.07;zoom=Math.max(0.3,Math.min(3,zoom));e.preventDefault();},{passive:false});
+
+let ltd=null,ltx=0,lty=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){drag=true;ltx=e.touches[0].clientX;lty=e.touches[0].clientY;}
+  if(e.touches.length===2)ltd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+},{passive:true});
+canvas.addEventListener('touchend',()=>{drag=false;ltd=null;});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===1&&drag){
+    rotY+=(e.touches[0].clientX-ltx)*0.008;rotX+=(e.touches[0].clientY-lty)*0.008;
+    rotX=Math.max(-1.4,Math.min(1.4,rotX));ltx=e.touches[0].clientX;lty=e.touches[0].clientY;
+  }
+  if(e.touches.length===2&&ltd!==null){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    zoom*=d/ltd;zoom=Math.max(0.3,Math.min(3,zoom));ltd=d;
+  }
+},{passive:true});
+
+function proj([x,y,z]){
+  const cx=Math.cos(rotY),sx=Math.sin(rotY);
+  const x1=cx*x+sx*z,z1=-sx*x+cx*z;
+  const cy=Math.cos(rotX),sy=Math.sin(rotX);
+  const y1=cy*y-sy*z1,z2=sy*y+cy*z1;
+  const fov=3.0,sc=zoom*Math.min(W,H)*0.38*fov/(fov+z2);
+  return[W/2+x1*sc,H/2-y1*sc,z2,sc];
+}
+
+canvas.addEventListener('click',e=>{
+  let best=-1,bd=Infinity;
+  for(let i=0;i<N;i++){
+    const[px,py]=proj(coords[i]);
+    const d=Math.hypot(px-e.clientX,py-e.clientY);
+    if(d<bd){bd=d;best=i;}
+  }
+  if(bd<40){selIdx=(selIdx===best)?null:best;updatePanel();}
+});
+
+function updatePanel(){
+  const panel=document.getElementById('info-panel');
+  if(selIdx===null){panel.classList.remove('visible');return;}
+  const h=HEX[selIdx];
+  const c=clusterData.labels[selIdx];
+  panel.classList.add('visible');
+  document.getElementById('ip-sym').textContent=h.sym;
+  document.getElementById('ip-sym').style.color=PALETTE[c%8];
+  document.getElementById('ip-name').textContent=`${h.num}. ${h.name}`;
+  document.getElementById('ip-tri').textContent=`下: ${TN[h.lo]}　上: ${TN[h.hi]}`;
+  document.getElementById('ip-num').textContent=h.num;
+  document.getElementById('ip-yang').textContent=bitsYang(h.bits);
+  document.getElementById('ip-dec').textContent=toDec(h.bits);
+  document.getElementById('ip-cluster').innerHTML=`<span style="color:${PALETTE[c%8]}">C${c+1}</span>`;
+  document.getElementById('ip-pc1').textContent=coords[selIdx][0].toFixed(4);
+  document.getElementById('ip-pc2').textContent=coords[selIdx][1].toFixed(4);
+  document.getElementById('ip-pc3').textContent=coords[selIdx][2].toFixed(4);
+  document.getElementById('ip-bits').innerHTML=h.bits.map(b=>
+    `<span style="color:${b?'#f5c518':'#2cb67d'}">${b}</span>`
+  ).join('');
+  const honDec=toDec(h.bits);
+  const rows=[];
+  for(let line=5;line>=0;line--){
+    const flipped=h.bits.map((b,k)=>k===line?1-b:b);
+    const j=HEX.findIndex(x=>x.bits.every((b,k)=>b===flipped[k]));
+    if(j>=0){
+      const zc=clusterData.labels[j];
+      const centDist=hamming(HEX[j].bits,clusterData.cents[zc]);
+      rows.push({j,line,zc,centDist});
+    }
+  }
+  document.getElementById('ip-neighbors').innerHTML=rows.map(({j,line,zc,centDist})=>
+    `<div class="neighbor-item">
+      <div class="neighbor-left">
+        <span class="neighbor-line">${lineNames[line]}</span>
+        <span class="neighbor-name" style="color:${PALETTE[zc%8]}">${HEX[j].sym} ${HEX[j].name}</span>
+      </div>
+      <span style="display:flex;gap:0.4rem;flex-shrink:0;font-size:0.62rem;align-items:center">
+        <span style="color:${PALETTE[zc%8]};font-weight:bold">C${zc+1}</span>
+        <span style="color:#00ffe0">${centDist}</span>
+      </span>
+    </div>`
+  ).join('');
+}
+
+const bitInput=document.getElementById('bit-input');
+const bitResult=document.getElementById('bit-result');
+bitInput.addEventListener('input',()=>{
+  const v=bitInput.value.replace(/[^01]/g,'');
+  bitInput.value=v;
+  if(v.length===6){
+    const bits=v.split('').map(Number);
+    const idx=HEX.findIndex(h=>h.bits.every((b,i)=>b===bits[i]));
+    if(idx>=0){
+      selIdx=idx;autoRotate=false;
+      document.getElementById('btn-rotate').classList.remove('active');
+      bitResult.textContent=`${HEX[idx].sym} ${HEX[idx].name}`;
+      bitResult.style.color='var(--accent)';
+      updatePanel();
+    } else {
+      bitResult.textContent='該当なし';
+      bitResult.style.color='var(--accent2)';
+    }
+  } else {
+    bitResult.textContent=v.length>0?`${v.length}/6`:'';
+    bitResult.style.color='var(--dim)';
+  }
+});
+
+function toggleRotate(){autoRotate=!autoRotate;document.getElementById('btn-rotate').classList.toggle('active',autoRotate);}
+function toggleAxes(){showAxes=!showAxes;document.getElementById('btn-axes').classList.toggle('active',showAxes);}
+function resetCamera(){rotX=0.35;rotY=0.55;zoom=1.0;}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+  bg.addColorStop(0,'#060c18');bg.addColorStop(1,'#04050a');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  for(let i=-6;i<=6;i++){
+    const t=i/6*1.2;
+    const[ax,ay]=proj([t,-0.9,-1.2]),[bx,by]=proj([t,-0.9,1.2]);
+    const[cx2,cy2]=proj([-1.2,-0.9,t]),[dx,dy]=proj([1.2,-0.9,t]);
+    ctx.strokeStyle='rgba(20,40,80,0.35)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(dx,dy);ctx.stroke();
+  }
+
+  if(showAxes){
+    const adef=[[[1.1,0,0],'#ff6b35','PC1'],[[0,1.1,0],'#00ffe0','PC2'],[[0,0,1.1],'#a855f7','PC3']];
+    const[ox,oy]=proj([0,0,0]);
+    adef.forEach(([to,col,lab])=>{
+      const[tx,ty]=proj(to);
+      ctx.strokeStyle=col+'88';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+      ctx.fillStyle=col;ctx.font='bold 11px Share Tech Mono,monospace';
+      ctx.fillText(lab,tx+6,ty);
+    });
+  }
+
+  const nodes=coords.map((c,i)=>({c,i,p:proj(c)}));
+  nodes.sort((a,b)=>a.p[2]-b.p[2]);
+
+  nodes.forEach(({i})=>{
+    for(let j=i+1;j<N;j++){
+      if(D[i][j]===1){
+        const ci=clusterData.labels[i],cj=clusterData.labels[j];
+        const sameC=ci===cj;
+        const[ax,ay,,as]=proj(coords[i]);
+        const[bx,by,,bs]=proj(coords[j]);
+        const al=Math.min(as,bs)*0.018;
+        ctx.strokeStyle=sameC
+          ?PALETTE[ci%8]+'33'
+          :`rgba(100,100,120,${Math.min(0.08,al)})`;
+        ctx.lineWidth=sameC?1.0:0.5;
+        ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+      }
+    }
+  });
+
+  nodes.forEach(({i,p:[px,py,pz,ps]})=>{
+    const h=HEX[i];
+    const isSel=i===selIdx;
+    const c=clusterData.labels[i];
+    const col=PALETTE[c%8];
+    const baseR=Math.max(3,Math.min(11,ps*0.012));
+    const r=isSel?baseR*1.6:baseR;
+    const al=0.5+0.5*Math.min(1,(pz+1.5)/3);
+
+    if(isSel){
+      const glow=ctx.createRadialGradient(px,py,0,px,py,r*4);
+      glow.addColorStop(0,col+'33');glow.addColorStop(1,col+'00');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(px,py,r*4,0,Math.PI*2);ctx.fill();
+    }
+
+    ctx.globalAlpha=isSel?1.0:al;
+    ctx.fillStyle=col+(isSel?'':'aa');
+    ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
+    if(isSel){
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(px,py,r+2,0,Math.PI*2);ctx.stroke();
+    }
+
+    const fs=Math.max(6,Math.min(11,ps*0.011));
+    ctx.globalAlpha=isSel?1.0:Math.min(1,al*1.2);
+    ctx.textAlign='center';
+    if(isSel){
+      const bf=Math.max(9,Math.min(14,ps*0.014));
+      ctx.font=`bold ${bf}px 'Share Tech Mono',monospace`;
+      h.bits.forEach((b,k)=>{
+        ctx.fillStyle=b?'#f5c518':'#2cb67d';
+        ctx.fillText(b,px+(k-2.5)*bf*1.15,py-r-5);
+      });
+    } else {
+      ctx.font=`${fs}px 'Share Tech Mono',monospace`;
+      ctx.fillStyle=col+'bb';
+      ctx.fillText(h.bits.join(''),px,py-r-3);
+    }
+    ctx.globalAlpha=1;
+  });
+
+  if(autoRotate)rotY+=0.003;
+}
+
+function loop(){draw();requestAnimationFrame(loop);}
+loop();
+</script>
+
+</body>
+</html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>易経 六十四卦 — PCA 3D Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Serif+JP:wght@300;400&display=swap');
+  :root{--bg:#04050a;--accent:#00ffe0;--accent2:#ff6b35;--accent3:#a855f7;--text:#c8d8e8;--dim:#3a4a5a;--panel:rgba(8,14,24,0.92);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow:hidden;width:100vw;height:100vh;}
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:1000;}
+  #canvas{position:fixed;inset:0;cursor:grab;}
+  #canvas:active{cursor:grabbing;}
+  .hud-top{position:fixed;top:0;left:0;right:0;padding:0.8rem 1.4rem;display:flex;justify-content:space-between;align-items:center;z-index:100;background:linear-gradient(to bottom,rgba(4,5,10,0.95),transparent);pointer-events:none;}
+  .title-main{font-family:'Noto Serif JP',serif;font-weight:300;font-size:1.1rem;color:var(--accent);letter-spacing:0.3em;text-shadow:0 0 20px rgba(0,255,224,0.4);}
+  .title-sub{font-size:0.62rem;color:var(--dim);letter-spacing:0.15em;margin-top:2px;}
+  .variance-badges{display:flex;gap:0.8rem;}
+  .badge{font-size:0.65rem;padding:0.25rem 0.6rem;border-radius:2px;letter-spacing:0.1em;}
+  .badge-x{background:rgba(255,107,53,0.15);border:1px solid var(--accent2);color:var(--accent2);}
+  .badge-y{background:rgba(0,255,224,0.1);border:1px solid var(--accent);color:var(--accent);}
+  .badge-z{background:rgba(168,85,247,0.12);border:1px solid var(--accent3);color:var(--accent3);}
+  #bit-search{position:fixed;top:4rem;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:0.6rem;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:0.4rem 0.9rem;backdrop-filter:blur(8px);}
+  #bit-label{font-size:0.6rem;color:var(--dim);letter-spacing:0.1em;white-space:nowrap;}
+  #bit-input{font-family:'Share Tech Mono',monospace;font-size:1.1rem;letter-spacing:0.4em;background:transparent;border:none;outline:none;color:var(--accent);width:7em;caret-color:var(--accent);}
+  #bit-input::placeholder{color:var(--dim);font-size:0.9rem;letter-spacing:0.2em;}
+  #bit-result{font-size:0.65rem;color:var(--accent2);min-width:5em;}
+  .hud-bottom{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);display:flex;gap:0.6rem;z-index:100;align-items:center;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:0.5rem 0.9rem;backdrop-filter:blur(8px);}
+  .ctrl-btn{font-family:'Share Tech Mono',monospace;font-size:0.68rem;background:transparent;border:1px solid var(--dim);color:var(--text);padding:0.3rem 0.7rem;cursor:pointer;letter-spacing:0.1em;transition:all 0.2s;border-radius:2px;}
+  .ctrl-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .ctrl-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,224,0.08);}
+  .k-ctrl{display:flex;align-items:center;gap:0.4rem;font-size:0.68rem;color:var(--dim);}
+  .k-ctrl input[type=range]{accent-color:var(--accent);width:80px;}
+  .k-val{color:var(--accent);min-width:1em;}
+  #info-panel{position:fixed;right:1rem;top:4.5rem;width:260px;background:var(--panel);border:1px solid var(--dim);border-radius:3px;padding:1rem;z-index:100;display:none;backdrop-filter:blur(8px);max-height:calc(100vh - 12rem);overflow-y:auto;}
+  #info-panel.visible{display:block;}
+  .info-symbol{font-size:3rem;text-align:center;margin-bottom:0.5rem;line-height:1;}
+  .info-name{font-family:'Noto Serif JP',serif;font-size:1rem;color:var(--accent);text-align:center;letter-spacing:0.2em;margin-bottom:0.5rem;}
+  .info-trigrams{font-size:0.68rem;text-align:center;color:var(--dim);margin-bottom:0.6rem;}
+  .info-bits{font-size:1.1rem;text-align:center;letter-spacing:0.3em;margin-bottom:0.2rem;}
+  .info-bits-label{font-size:0.56rem;text-align:center;color:var(--dim);margin-bottom:0.7rem;}
+  .info-row{font-size:0.65rem;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:0.3rem;}
+  .info-row span:last-child{color:var(--text);}
+  .info-sep{border:none;border-top:1px solid var(--dim);margin:0.6rem 0;}
+  .neighbor-item{font-size:0.62rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;gap:0.3rem;}
+  .neighbor-left{display:flex;align-items:center;gap:0.3rem;}
+  .neighbor-line{color:var(--dim);font-size:0.58rem;width:2.2em;flex-shrink:0;}
+  .neighbor-name{color:var(--text);}
+  .legend{position:fixed;left:1rem;top:50%;transform:translateY(-50%);z-index:100;pointer-events:none;}
+  .legend-title{font-size:0.58rem;color:var(--dim);letter-spacing:0.15em;margin-bottom:0.5rem;}
+  .legend-item{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;}
+  .legend-label{font-size:0.6rem;color:var(--dim);}
+  .hint{position:fixed;left:1rem;bottom:3.5rem;font-size:0.6rem;color:var(--dim);pointer-events:none;z-index:100;}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="hud-top">
+  <div>
+    <div class="title-main">六十四卦　三次元主成分分析</div>
+    <div class="title-sub">PCA · HAMMING DISTANCE · 初爻(左) → 上爻(右)</div>
+  </div>
+  <div class="variance-badges">
+    <div class="badge badge-x" id="badge-pc1">PC1: —</div>
+    <div class="badge badge-y" id="badge-pc2">PC2: —</div>
+    <div class="badge badge-z" id="badge-pc3">PC3: —</div>
+  </div>
+</div>
+<div id="bit-search">
+  <span id="bit-label">初爻→上爻:</span>
+  <input id="bit-input" maxlength="6" placeholder="000000" spellcheck="false"/>
+  <span id="bit-result"></span>
+</div>
+<div class="legend" id="legend"></div>
+<div id="info-panel">
+  <div class="info-symbol" id="ip-sym">䷀</div>
+  <div class="info-name" id="ip-name">乾</div>
+  <div class="info-trigrams" id="ip-tri">下: 乾　上: 乾</div>
+  <div class="info-bits" id="ip-bits">111111</div>
+  <div class="info-bits-label">← 初爻　　上爻 →</div>
+  <div class="info-row"><span>番号</span><span id="ip-num">1</span></div>
+  <div class="info-row"><span>陽爻数</span><span id="ip-yang">6</span></div>
+  <div class="info-row"><span>10進</span><span id="ip-dec">63</span></div>
+  <div class="info-row"><span>クラスタ</span><span id="ip-cluster">—</span></div>
+  <div class="info-row"><span>PC1</span><span id="ip-pc1">—</span></div>
+  <div class="info-row"><span>PC2</span><span id="ip-pc2">—</span></div>
+  <div class="info-row"><span>PC3</span><span id="ip-pc3">—</span></div>
+  <hr class="info-sep">
+  <div style="font-size:0.6rem;color:var(--dim);margin-bottom:0.2rem;letter-spacing:0.1em">変爻（上爻→初爻）</div>
+  <div style="font-size:0.56rem;margin-bottom:0.4rem;display:flex;gap:0.6rem;">
+    <span style="color:#f5c518">クラスタ</span>
+    <span style="color:#00ffe0">中心距離</span>
+  </div>
+  <div id="ip-neighbors"></div>
+</div>
+<div class="hud-bottom">
+  <button class="ctrl-btn active" id="btn-rotate" onclick="toggleRotate()">⟳ 自動回転</button>
+  <button class="ctrl-btn" id="btn-axes" onclick="toggleAxes()">座標軸</button>
+  <button class="ctrl-btn" onclick="resetCamera()">リセット</button>
+  <div class="k-ctrl">
+    <span>k:</span>
+    <input type="range" id="sl-k" min="2" max="8" step="1" value="4">
+    <span class="k-val" id="vl-k">4</span>
+  </div>
+</div>
+<div class="hint">ドラッグ: 回転　スクロール: ズーム　クリック: 卦を選択</div>
+
+<script>
+const TG={ken:[1,1,1],da:[1,1,0],ri:[1,0,1],sin:[1,0,0],son:[0,1,1],kan:[0,1,0],gon:[0,0,1],kon:[0,0,0]};
+const TN={ken:'乾',da:'兌',ri:'離',sin:'震',son:'巽',kan:'坎',gon:'艮',kon:'坤'};
+const TKEYS=['ken','da','ri','sin','son','kan','gon','kon'];
+function mk(lo,hi){return[...TG[lo],...TG[hi]];}
+const HEX_RAW=[
+  [ 1,'䷀','乾','ken','ken'],[ 2,'䷁','坤','kon','kon'],[ 3,'䷂','屯','sin','kan'],
+  [ 4,'䷃','蒙','kan','gon'],[ 5,'䷄','需','ken','kan'],[ 6,'䷅','訟','kan','ken'],
+  [ 7,'䷆','師','kan','kon'],[ 8,'䷇','比','kon','kan'],[ 9,'䷈','小畜','ken','son'],
+  [10,'䷉','履','da','ken'],[11,'䷊','泰','ken','kon'],[12,'䷋','否','kon','ken'],
+  [13,'䷌','同人','ri','ken'],[14,'䷍','大有','ken','ri'],[15,'䷎','謙','gon','kon'],
+  [16,'䷏','豫','kon','sin'],[17,'䷐','随','sin','da'],[18,'䷑','蠱','son','gon'],
+  [19,'䷒','臨','da','kon'],[20,'䷓','観','kon','son'],[21,'䷔','噬嗑','sin','ri'],
+  [22,'䷕','賁','ri','gon'],[23,'䷖','剥','kon','gon'],[24,'䷗','復','sin','kon'],
+  [25,'䷘','無妄','sin','ken'],[26,'䷙','大畜','ken','gon'],[27,'䷚','頤','sin','gon'],
+  [28,'䷛','大過','son','da'],[29,'䷜','坎','kan','kan'],[30,'䷝','離','ri','ri'],
+  [31,'䷞','咸','gon','da'],[32,'䷟','恒','son','sin'],[33,'䷠','遯','gon','ken'],
+  [34,'䷡','大壮','ken','sin'],[35,'䷢','晋','kon','ri'],[36,'䷣','明夷','ri','kon'],
+  [37,'䷤','家人','ri','son'],[38,'䷥','睽','da','ri'],[39,'䷦','蹇','gon','kan'],
+  [40,'䷧','解','kan','sin'],[41,'䷨','損','da','gon'],[42,'䷩','益','sin','son'],
+  [43,'䷪','夬','ken','da'],[44,'䷫','姤','son','ken'],[45,'䷬','萃','kon','da'],
+  [46,'䷭','升','son','kon'],[47,'䷮','困','kan','da'],[48,'䷯','井','son','kan'],
+  [49,'䷰','革','ri','da'],[50,'䷱','鼎','son','ri'],[51,'䷲','震','sin','sin'],
+  [52,'䷳','艮','gon','gon'],[53,'䷴','漸','gon','son'],[54,'䷵','帰妹','da','sin'],
+  [55,'䷶','豊','ri','sin'],[56,'䷷','旅','gon','ri'],[57,'䷸','巽','son','son'],
+  [58,'䷹','兌','da','da'],[59,'䷺','渙','kan','son'],[60,'䷻','節','da','kan'],
+  [61,'䷼','中孚','da','son'],[62,'䷽','小過','gon','sin'],[63,'䷾','既済','ri','kan'],
+  [64,'䷿','未済','kan','ri'],
+];
+const HEX=HEX_RAW.map(([num,sym,name,lo,hi])=>({num,sym,name,lo,hi,bits:mk(lo,hi)}));
+const N=64;
+const lineNames=['初爻','二爻','三爻','四爻','五爻','上爻'];
+const PALETTE=['#2cb67d','#0a6aff','#ff6b35','#f5c518','#a855f7','#e040fb','#ff9800','#00bcd4'];
+
+function yang(bits){return bits.reduce((a,b)=>a+b,0);}
+function hamming(a,b){let d=0;for(let i=0;i<6;i++)if(a[i]!==b[i])d++;return d;}
+function toDec(bits){return bits.reduce((a,b,i)=>a+b*(1<<i),0);}
+function bitsYang(bits){return bits.reduce((a,b)=>a+b,0);}
+
+// k-means
+function kmeans(k){
+  const centIdx=[0];
+  while(centIdx.length<k){
+    let best=-1,bd=-1;
+    for(let i=0;i<N;i++){
+      if(centIdx.includes(i))continue;
+      const d=Math.min(...centIdx.map(c=>hamming(HEX[i].bits,HEX[c].bits)));
+      if(d>bd){bd=d;best=i;}
+    }
+    centIdx.push(best);
+  }
+  let cents=centIdx.map(i=>HEX[i].bits.slice());
+  let labels=Array(N).fill(0);
+  for(let iter=0;iter<200;iter++){
+    const nl=HEX.map(h=>{
+      let best=0,bd=Infinity;
+      cents.forEach((c,i)=>{const d=hamming(h.bits,c);if(d<bd){bd=d;best=i;}});
+      return best;
+    });
+    const nc=Array.from({length:k},(_,c)=>{
+      const mb=HEX.filter((_,i)=>nl[i]===c);
+      if(mb.length===0)return cents[c];
+      return Array.from({length:6},(_,j)=>{
+        const ones=mb.filter(h=>h.bits[j]===1).length;
+        return ones>mb.length/2?1:0;
+      });
+    });
+    if(nl.every((l,i)=>l===labels[i]))break;
+    labels=nl;cents=nc;
+  }
+  // 陽爻数平均でソート
+  const avgY=Array.from({length:k},(_,c)=>{
+    const mb=HEX.filter((_,i)=>labels[i]===c);
+    return mb.length>0?mb.reduce((s,h)=>s+yang(h.bits),0)/mb.length:0;
+  });
+  const order=[...Array(k).keys()].sort((a,b)=>avgY[a]-avgY[b]);
+  const remap=Array(k);order.forEach((orig,newC)=>remap[orig]=newC);
+  // セントロイドもソート順に並べ替え
+  const sortedCents=Array(k);
+  order.forEach((orig,newC)=>sortedCents[newC]=cents[orig]);
+  return{labels:labels.map(l=>remap[l]),labelsOrig:labels,cents:sortedCents,k};
+}
+
+let clusterData=kmeans(4);
+
+function updateLegend(k){
+  const members=Array.from({length:k},(_,c)=>HEX.filter((_,i)=>clusterData.labels[i]===c));
+  document.getElementById('legend').innerHTML=
+    `<div class="legend-title">k-means k=${k}</div>`+
+    members.map((mb,c)=>{
+      const avgY=(mb.reduce((s,h)=>s+yang(h.bits),0)/mb.length).toFixed(1);
+      return `<div class="legend-item"><div class="legend-dot" style="background:${PALETTE[c%8]}"></div><div class="legend-label">C${c+1}（陽均${avgY}）</div></div>`;
+    }).join('');
+}
+updateLegend(4);
+
+// PCA
+const D=Array.from({length:N},(_,i)=>Array.from({length:N},(_,j)=>hamming(HEX[i].bits,HEX[j].bits)));
+function pca3(){
+  const n=N;
+  const D2=D.map(r=>r.map(v=>v*v));
+  const rm=D2.map(r=>r.reduce((a,b)=>a+b,0)/n);
+  const cm=Array.from({length:n},(_,j)=>D2.reduce((s,r)=>s+r[j],0)/n);
+  const gm=rm.reduce((a,b)=>a+b,0)/n;
+  const B=D2.map((r,i)=>r.map((v,j)=>-0.5*(v-rm[i]-cm[j]+gm)));
+  let Mc=B.map(r=>[...r]);
+  const vecs=[],vals=[];
+  for(let ki=0;ki<3;ki++){
+    let v=Array.from({length:n},(_,i)=>Math.sin(ki*1.3+i*0.7));
+    let nm=Math.sqrt(v.reduce((a,x)=>a+x*x,0));v=v.map(x=>x/nm);
+    let lam=0;
+    for(let it=0;it<600;it++){
+      const Mv=Mc.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+      lam=Math.sqrt(Mv.reduce((a,x)=>a+x*x,0));
+      if(lam<1e-10)break;v=Mv.map(x=>x/lam);
+    }
+    vecs.push(v);vals.push(lam);
+    Mc.forEach((r,i)=>r.forEach((_,j)=>{Mc[i][j]-=lam*v[i]*v[j];}));
+  }
+  const coords=Array.from({length:n},(_,i)=>vecs.map((v,k)=>v[i]*Math.sqrt(Math.max(0,vals[k]))));
+  const yng=HEX.map(h=>h.bits.reduce((a,b)=>a+b,0));
+  for(let k=0;k<3;k++){
+    const cor=coords.reduce((s,c,i)=>s+c[k]*yng[i],0);
+    if(cor<0)coords.forEach(c=>c[k]=-c[k]);
+  }
+  for(let k=0;k<3;k++){
+    const mx=Math.max(...coords.map(c=>Math.abs(c[k])));
+    if(mx>0)coords.forEach(c=>c[k]=c[k]/mx);
+  }
+  const tv=B.reduce((a,r)=>a+r.reduce((s,x)=>s+x*x,0),0);
+  const ve=vals.map(v=>(v*v/tv)*100);
+  return{coords,ve};
+}
+const{coords,ve}=pca3();
+document.getElementById('badge-pc1').textContent=`PC1: ${ve[0].toFixed(1)}%`;
+document.getElementById('badge-pc2').textContent=`PC2: ${ve[1].toFixed(1)}%`;
+document.getElementById('badge-pc3').textContent=`PC3: ${ve[2].toFixed(1)}%`;
+
+// スライダー
+document.getElementById('sl-k').addEventListener('input',function(){
+  const k=parseInt(this.value);
+  document.getElementById('vl-k').textContent=k;
+  clusterData=kmeans(k);
+  updateLegend(k);
+  if(selIdx!==null)updatePanel();
+});
+
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+
+let rotX=0.35,rotY=0.55,zoom=1.0,autoRotate=true,showAxes=false,selIdx=null;
+let drag=false,lmx=0,lmy=0;
+
+canvas.addEventListener('mousedown',e=>{drag=true;lmx=e.clientX;lmy=e.clientY;autoRotate=false;document.getElementById('btn-rotate').classList.remove('active');});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  rotY+=(e.clientX-lmx)*0.008;rotX+=(e.clientY-lmy)*0.008;
+  rotX=Math.max(-1.4,Math.min(1.4,rotX));lmx=e.clientX;lmy=e.clientY;
+});
+canvas.addEventListener('wheel',e=>{zoom*=e.deltaY>0?0.93:1.07;zoom=Math.max(0.3,Math.min(3,zoom));e.preventDefault();},{passive:false});
+
+let ltd=null,ltx=0,lty=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){drag=true;ltx=e.touches[0].clientX;lty=e.touches[0].clientY;}
+  if(e.touches.length===2)ltd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+},{passive:true});
+canvas.addEventListener('touchend',()=>{drag=false;ltd=null;});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===1&&drag){
+    rotY+=(e.touches[0].clientX-ltx)*0.008;rotX+=(e.touches[0].clientY-lty)*0.008;
+    rotX=Math.max(-1.4,Math.min(1.4,rotX));ltx=e.touches[0].clientX;lty=e.touches[0].clientY;
+  }
+  if(e.touches.length===2&&ltd!==null){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    zoom*=d/ltd;zoom=Math.max(0.3,Math.min(3,zoom));ltd=d;
+  }
+},{passive:true});
+
+function proj([x,y,z]){
+  const cx=Math.cos(rotY),sx=Math.sin(rotY);
+  const x1=cx*x+sx*z,z1=-sx*x+cx*z;
+  const cy=Math.cos(rotX),sy=Math.sin(rotX);
+  const y1=cy*y-sy*z1,z2=sy*y+cy*z1;
+  const fov=3.0,sc=zoom*Math.min(W,H)*0.38*fov/(fov+z2);
+  return[W/2+x1*sc,H/2-y1*sc,z2,sc];
+}
+
+canvas.addEventListener('click',e=>{
+  let best=-1,bd=Infinity;
+  for(let i=0;i<N;i++){
+    const[px,py]=proj(coords[i]);
+    const d=Math.hypot(px-e.clientX,py-e.clientY);
+    if(d<bd){bd=d;best=i;}
+  }
+  if(bd<40){selIdx=(selIdx===best)?null:best;updatePanel();}
+});
+
+function updatePanel(){
+  const panel=document.getElementById('info-panel');
+  if(selIdx===null){panel.classList.remove('visible');return;}
+  const h=HEX[selIdx];
+  const c=clusterData.labels[selIdx];
+  panel.classList.add('visible');
+  document.getElementById('ip-sym').textContent=h.sym;
+  document.getElementById('ip-sym').style.color=PALETTE[c%8];
+  document.getElementById('ip-name').textContent=`${h.num}. ${h.name}`;
+  document.getElementById('ip-tri').textContent=`下: ${TN[h.lo]}　上: ${TN[h.hi]}`;
+  document.getElementById('ip-num').textContent=h.num;
+  document.getElementById('ip-yang').textContent=bitsYang(h.bits);
+  document.getElementById('ip-dec').textContent=toDec(h.bits);
+  document.getElementById('ip-cluster').innerHTML=`<span style="color:${PALETTE[c%8]}">C${c+1}</span>`;
+  document.getElementById('ip-pc1').textContent=coords[selIdx][0].toFixed(4);
+  document.getElementById('ip-pc2').textContent=coords[selIdx][1].toFixed(4);
+  document.getElementById('ip-pc3').textContent=coords[selIdx][2].toFixed(4);
+  document.getElementById('ip-bits').innerHTML=h.bits.map(b=>
+    `<span style="color:${b?'#f5c518':'#2cb67d'}">${b}</span>`
+  ).join('');
+  const honDec=toDec(h.bits);
+  const rows=[];
+  for(let line=5;line>=0;line--){
+    const flipped=h.bits.map((b,k)=>k===line?1-b:b);
+    const j=HEX.findIndex(x=>x.bits.every((b,k)=>b===flipped[k]));
+    if(j>=0){
+      const zc=clusterData.labels[j];
+      const centDist=hamming(HEX[j].bits,clusterData.cents[zc]);
+      rows.push({j,line,zc,centDist});
+    }
+  }
+  document.getElementById('ip-neighbors').innerHTML=rows.map(({j,line,zc,centDist})=>
+    `<div class="neighbor-item">
+      <div class="neighbor-left">
+        <span class="neighbor-line">${lineNames[line]}</span>
+        <span class="neighbor-name" style="color:${PALETTE[zc%8]}">${HEX[j].sym} ${HEX[j].name}</span>
+      </div>
+      <span style="display:flex;gap:0.4rem;flex-shrink:0;font-size:0.62rem;align-items:center">
+        <span style="color:${PALETTE[zc%8]};font-weight:bold">C${zc+1}</span>
+        <span style="color:#00ffe0">${centDist}</span>
+      </span>
+    </div>`
+  ).join('');
+}
+
+const bitInput=document.getElementById('bit-input');
+const bitResult=document.getElementById('bit-result');
+bitInput.addEventListener('input',()=>{
+  const v=bitInput.value.replace(/[^01]/g,'');
+  bitInput.value=v;
+  if(v.length===6){
+    const bits=v.split('').map(Number);
+    const idx=HEX.findIndex(h=>h.bits.every((b,i)=>b===bits[i]));
+    if(idx>=0){
+      selIdx=idx;autoRotate=false;
+      document.getElementById('btn-rotate').classList.remove('active');
+      bitResult.textContent=`${HEX[idx].sym} ${HEX[idx].name}`;
+      bitResult.style.color='var(--accent)';
+      updatePanel();
+    } else {
+      bitResult.textContent='該当なし';
+      bitResult.style.color='var(--accent2)';
+    }
+  } else {
+    bitResult.textContent=v.length>0?`${v.length}/6`:'';
+    bitResult.style.color='var(--dim)';
+  }
+});
+
+function toggleRotate(){autoRotate=!autoRotate;document.getElementById('btn-rotate').classList.toggle('active',autoRotate);}
+function toggleAxes(){showAxes=!showAxes;document.getElementById('btn-axes').classList.toggle('active',showAxes);}
+function resetCamera(){rotX=0.35;rotY=0.55;zoom=1.0;}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+  bg.addColorStop(0,'#060c18');bg.addColorStop(1,'#04050a');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  for(let i=-6;i<=6;i++){
+    const t=i/6*1.2;
+    const[ax,ay]=proj([t,-0.9,-1.2]),[bx,by]=proj([t,-0.9,1.2]);
+    const[cx2,cy2]=proj([-1.2,-0.9,t]),[dx,dy]=proj([1.2,-0.9,t]);
+    ctx.strokeStyle='rgba(20,40,80,0.35)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(dx,dy);ctx.stroke();
+  }
+
+  if(showAxes){
+    const adef=[[[1.1,0,0],'#ff6b35','PC1'],[[0,1.1,0],'#00ffe0','PC2'],[[0,0,1.1],'#a855f7','PC3']];
+    const[ox,oy]=proj([0,0,0]);
+    adef.forEach(([to,col,lab])=>{
+      const[tx,ty]=proj(to);
+      ctx.strokeStyle=col+'88';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+      ctx.fillStyle=col;ctx.font='bold 11px Share Tech Mono,monospace';
+      ctx.fillText(lab,tx+6,ty);
+    });
+  }
+
+  const nodes=coords.map((c,i)=>({c,i,p:proj(c)}));
+  nodes.sort((a,b)=>a.p[2]-b.p[2]);
+
+  nodes.forEach(({i})=>{
+    for(let j=i+1;j<N;j++){
+      if(D[i][j]===1){
+        const ci=clusterData.labels[i],cj=clusterData.labels[j];
+        const sameC=ci===cj;
+        const[ax,ay,,as]=proj(coords[i]);
+        const[bx,by,,bs]=proj(coords[j]);
+        const al=Math.min(as,bs)*0.018;
+        ctx.strokeStyle=sameC
+          ?PALETTE[ci%8]+'33'
+          :`rgba(100,100,120,${Math.min(0.08,al)})`;
+        ctx.lineWidth=sameC?1.0:0.5;
+        ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+      }
+    }
+  });
+
+  nodes.forEach(({i,p:[px,py,pz,ps]})=>{
+    const h=HEX[i];
+    const isSel=i===selIdx;
+    const c=clusterData.labels[i];
+    const col=PALETTE[c%8];
+    const baseR=Math.max(3,Math.min(11,ps*0.012));
+    const r=isSel?baseR*1.6:baseR;
+    const al=0.5+0.5*Math.min(1,(pz+1.5)/3);
+
+    if(isSel){
+      const glow=ctx.createRadialGradient(px,py,0,px,py,r*4);
+      glow.addColorStop(0,col+'33');glow.addColorStop(1,col+'00');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(px,py,r*4,0,Math.PI*2);ctx.fill();
+    }
+
+    ctx.globalAlpha=isSel?1.0:al;
+    ctx.fillStyle=col+(isSel?'':'aa');
+    ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
+    if(isSel){
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(px,py,r+2,0,Math.PI*2);ctx.stroke();
+    }
+
+    const fs=Math.max(6,Math.min(11,ps*0.011));
+    ctx.globalAlpha=isSel?1.0:Math.min(1,al*1.2);
+    ctx.textAlign='center';
+    if(isSel){
+      const bf=Math.max(9,Math.min(14,ps*0.014));
+      ctx.font=`bold ${bf}px 'Share Tech Mono',monospace`;
+      h.bits.forEach((b,k)=>{
+        ctx.fillStyle=b?'#f5c518':'#2cb67d';
+        ctx.fillText(b,px+(k-2.5)*bf*1.15,py-r-5);
+      });
+    } else {
+      ctx.font=`${fs}px 'Share Tech Mono',monospace`;
+      ctx.fillStyle=col+'bb';
+      ctx.fillText(h.bits.join(''),px,py-r-3);
+    }
+    ctx.globalAlpha=1;
+  });
+
+  if(autoRotate)rotY+=0.003;
+}
+
+function loop(){draw();requestAnimationFrame(loop);}
+loop();
+</script>
+
+</body>
+</html>
