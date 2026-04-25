@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="立卦">
+<meta name="theme-color" content="#c8a84b">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.svg">
+<title>構造分布立卦</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Serif+JP:wght@300;400;700&display=swap');
+  :root {
+    --bg:#080810; --border:#1a1a30;
+    --gold:#c8a84b; --gold-dim:#3a2e10;
+    --green:#00ff88; --purple:#cc88ff;
+    --text:#7788aa; --bright:#ccdde8;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { max-width:100vw; overflow-x:hidden; }
+  body { font-family:'Share Tech Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px 40px; }
+
+  header { text-align:center; margin-bottom:28px; width:100%; }
+  header h1 { font-family:'Noto Serif JP',serif; font-weight:300; font-size:22px; color:var(--gold); letter-spacing:4px; margin-bottom:6px; }
+  header .sub { font-size:10px; color:#445; letter-spacing:1px; line-height:1.8; }
+
+  /* 観測ボタン */
+  .obs-btn {
+    width: min(320px, 90vw);
+    padding: 18px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    font-family: 'Noto Serif JP', serif;
+    font-size: 18px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .obs-btn:hover { background: var(--gold-dim); }
+  .obs-btn:active { transform: scale(0.98); }
+  .obs-btn.firing { border-color: var(--purple); color: var(--purple); }
+
+  /* 結果メイン */
+  .result { width:min(360px, 94vw); display:flex; flex-direction:column; gap:14px; }
+
+  /* 卦名大表示 */
+  .kua-main { text-align:center; padding:20px; border:1px solid var(--border); }
+  .kua-name { font-family:'Noto Serif JP',serif; font-size:48px; color:var(--gold); line-height:1; }
+  .kua-kw   { font-size:10px; color:#445; margin-top:4px; letter-spacing:1px; word-break:break-all; }
+
+  /* ビット列 */
+  .bits-row { display:flex; justify-content:center; gap:4px; margin-top:12px; flex-wrap:wrap; }
+  .bit {
+    width:36px; height:36px;
+    border: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:bold;
+  }
+  .bit.one  { border-color:var(--gold); color:var(--gold); background:rgba(200,168,75,0.1); }
+  .bit.zero { border-color:#334; color:#445; }
+  .bit-label { font-size:8px; color:#334; text-align:center; margin-top:3px; letter-spacing:0; }
+
+  /* 爻ビジュアル */
+  .yao-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; margin-top:8px; }
+  .yao { display:flex; gap:6px; align-items:center; }
+  .yao-line { height:6px; background:var(--gold); }
+  .yao-line.yang { width:60px; }
+  .yao-line.yin-l { width:26px; }
+  .yao-line.yin-r { width:26px; }
+  .yao-num { font-size:9px; color:#445; width:36px; text-align:right; white-space:nowrap; }
+
+  /* 構造数値 */
+  .struct { padding:14px 16px; border:1px solid var(--border); }
+  .struct-title { font-size:9px; color:var(--text); letter-spacing:2px; margin-bottom:10px; }
+  .s-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #0d0d1a; font-size:11px; }
+  .s-label { color:var(--text); }
+  .s-val { color:var(--bright); }
+  .s-bar-wrap { width:80px; height:5px; background:#111; margin-left:8px; }
+  .s-bar { height:5px; }
+
+  /* 確率分布ミニグリッド */
+  .prob-title { font-size:9px; color:var(--text); letter-spacing:2px; margin-bottom:6px; margin-top:14px; }
+  .mini-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:2px; }
+  .mini-cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:6px; border:1px solid transparent; }
+  .mini-cell.selected { border-color:var(--gold) !important; border-width:2px; }
+
+  /* 状態モード判定 */
+  .mode-box { padding:10px 14px; border:1px solid var(--border); font-size:11px; line-height:1.9; }
+  .mode-title { font-size:9px; color:var(--text); letter-spacing:2px; margin-bottom:6px; }
+  .mode-val { font-size:14px; color:var(--bright); }
+
+  /* 量子状態バー */
+  .qstate { padding:10px 14px; border:1px solid var(--border); }
+  .qstate-title { font-size:9px; color:var(--text); letter-spacing:2px; margin-bottom:8px; }
+  .qbar-row { display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:9px; }
+  .qbar-name { width:28px; color:var(--bright); }
+  .qbar-w { flex:1; height:5px; background:#111; }
+  .qbar-fill { height:5px; }
+  .qbar-pct { width:36px; text-align:right; color:var(--text); }
+
+  /* 履歴 */
+  .history-wrap { width:min(360px,94vw); margin-top:20px; }
+  .history-title { font-size:9px; color:#334; letter-spacing:2px; margin-bottom:8px; }
+  .history-list { display:flex; gap:6px; flex-wrap:wrap; }
+  .hist-item { padding:4px 8px; border:1px solid #1a1a30; font-size:10px; cursor:pointer; }
+  .hist-item:hover { border-color:var(--gold); }
+  .hist-name { color:var(--bright); }
+  .hist-kw { color:#334; font-size:9px; }
+
+  /* アニメーション */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulsing { animation: pulse 0.6s ease-in-out 3; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>構造分布立卦</h1>
+  <div class="sub" style="color:var(--text);font-size:10px;margin-top:4px">量子ウォークモデル</div>
+</header>
+
+<button class="obs-btn" id="obsBtn" onclick="observe()">観　測</button>
+
+<div class="result" id="result" style="display:none">
+
+  <!-- 卦名 -->
+  <div class="kua-main" id="kuaMain">
+    <div class="kua-name" id="kuaName">—</div>
+    <div class="kua-kw" id="kuaKw">—</div>
+    <div style="margin-top:8px">
+      <div class="yao-wrap" id="yaoWrap"></div>
+    </div>
+  </div>
+
+  <!-- 分布エントロピー -->
+  <div class="struct" id="entropyBox">
+    <div class="struct-title">分布エントロピー</div>
+    <div class="s-row">
+      <span class="s-label">H（この試行）</span>
+      <span class="s-val" id="entropyVal">—</span>
+    </div>
+    <div class="s-row">
+      <span class="s-label">最大値（均一）</span>
+      <span class="s-val" style="color:#445">6.000 bits</span>
+    </div>
+    <div class="s-row" style="border:none">
+      <span class="s-label">集中度</span>
+      <div style="display:flex;align-items:center;gap:6px;flex:1;justify-content:flex-end">
+        <div class="s-bar-wrap"><div class="s-bar" id="entropyBar"></div></div>
+        <span class="s-val" id="entropyPct">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 構造数値 -->
+  <div class="struct">
+    <div class="struct-title">STRUCTURAL METRICS</div>
+    <div class="s-row">
+      <span class="s-label">Rs（不安定度）</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="s-bar-wrap"><div class="s-bar" id="rsBar"></div></div>
+        <span class="s-val" id="rsVal">—</span>
+      </div>
+    </div>
+    <div class="s-row">
+      <span class="s-label">SI（構造的孤立度）</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="s-bar-wrap"><div class="s-bar" id="siBar"></div></div>
+        <span class="s-val" id="siVal">—</span>
+      </div>
+    </div>
+    <div class="s-row">
+      <span class="s-label">Walsh次数</span>
+      <span class="s-val" id="walshDeg" style="font-size:11px;text-align:right">—</span>
+    </div>
+    <div class="s-row" style="border:none">
+      <span class="s-label">観測確率</span>
+      <span class="s-val" id="obsProb">—</span>
+    </div>
+  </div>
+
+  <!-- 観測時の確率分布ミニグリッド -->
+  <div class="struct">
+    <div class="struct-title">確率分布 TOP10（観測時 t）</div>
+    <div class="mini-grid" id="miniGrid"></div>
+    <div style="font-size:9px;color:#334;margin-top:6px">橙=既済 青=未済 金=今回の観測 ► 印</div>
+  </div>
+
+  <!-- クラスタ分布 -->
+  <div class="struct" id="clusterBox">
+    <div class="struct-title">クラスタ分布（k=2）</div>
+    <div id="clusterRows"></div>
+    <div style="font-size:9px;color:#334;margin-top:4px">観測卦が属するクラスタを強調表示</div>
+  </div>
+
+  <!-- 3D/2D可視化 -->
+  <div class="struct">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="struct-title" style="margin-bottom:0">可視化</div>
+      <div style="display:flex;gap:6px">
+        <button id="btn3d" onclick="setView('3d')" style="padding:3px 10px;border:1px solid var(--purple);background:rgba(180,100,255,0.2);color:var(--purple);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer">3D MDS</button>
+        <button id="btn2d" onclick="setView('2d')" style="padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer">Rs×SI</button>
+      </div>
+    </div>
+    <canvas id="canvas3d" style="width:100%;height:300px;background:#08080f;border-radius:2px;touch-action:none"></canvas>
+    <canvas id="canvas2d" style="width:100%;height:300px;background:#08080f;border-radius:2px;display:none"></canvas>
+    <div id="view3dLegend" style="font-size:9px;color:#334;margin-top:4px">🟡観測卦　🔵起点卦　🟠動爻先　🟣隣接6卦　🟢TOP10　⬤その他</div>
+    <div id="view2dLegend" style="font-size:9px;color:#334;margin-top:4px;display:none">横軸:Rs　縦軸:SI　🟡観測卦　🔵起点卦　🟠動爻先◆　🟢TOP10</div>
+  </div>
+
+</div>
+
+<!-- 履歴 -->
+<div class="history-wrap">
+  <div class="history-title">観測履歴</div>
+  <div class="history-list" id="histList"></div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+const KN=["乾","坤","屯","蒙","需","訟","師","比","小畜","履","泰","否","同人","大有","謙","豫","随","蠱","臨","観","噬嗑","賁","剥","復","無妄","大畜","頤","大過","坎","離","咸","恒","遯","大壮","晋","明夷","家人","睽","蹇","解","損","益","夬","姤","萃","升","困","井","革","鼎","震","艮","漸","帰妹","豊","旅","巽","兌","渙","節","中孚","小過","既済","未済"];
+const BITS=[[1,1,1,1,1,1],[0,0,0,0,0,0],[1,0,0,0,1,0],[0,1,0,0,0,1],[1,1,1,0,1,0],[0,1,0,1,1,1],[0,1,0,0,0,0],[0,0,0,0,1,0],[1,1,1,0,1,1],[1,1,0,1,1,1],[1,1,1,0,0,0],[0,0,0,1,1,1],[1,0,1,1,1,1],[1,1,1,1,0,1],[0,0,1,0,0,0],[0,0,0,1,0,0],[1,0,0,1,1,0],[0,1,1,0,0,1],[1,1,0,0,0,0],[0,0,0,0,1,1],[1,0,0,1,0,1],[1,0,1,0,0,1],[0,0,0,0,0,1],[1,0,0,0,0,0],[1,0,0,1,1,1],[1,1,1,0,0,1],[1,0,0,0,0,1],[0,1,1,1,1,0],[0,1,0,0,1,0],[1,0,1,1,0,1],[0,0,1,1,1,0],[0,1,1,1,0,0],[0,0,1,1,1,1],[1,1,1,1,0,0],[0,0,0,1,0,1],[1,0,1,0,0,0],[1,0,1,0,1,1],[1,1,0,1,0,1],[0,0,1,0,1,0],[0,1,0,1,0,0],[1,1,0,0,0,1],[1,0,0,0,1,1],[1,1,1,1,1,0],[0,1,1,1,1,1],[0,0,0,1,1,0],[0,1,1,0,0,0],[0,1,0,1,1,0],[0,1,1,0,1,0],[1,0,1,1,1,0],[0,1,1,1,0,1],[1,0,0,1,0,0],[0,0,1,0,0,1],[0,0,1,0,1,1],[1,1,0,1,0,0],[1,0,1,1,0,0],[0,0,1,1,0,1],[0,1,1,0,1,1],[1,1,0,1,1,0],[0,1,0,0,1,1],[1,1,0,0,1,0],[1,1,0,0,1,1],[0,0,1,1,0,0],[1,0,1,0,1,0],[0,1,0,1,0,1]];
+const RS=[0.0,0.0,0.4929,0.2633,0.7990,0.5694,0.1755,0.4051,0.7112,0.4816,0.4194,0.4194,0.1755,0.4051,0.4816,0.7112,0.5694,0.5694,0.0878,0.3173,0.8867,0.6571,0.0878,0.0878,0.4816,0.4816,0.1755,0.1755,0.5806,0.5806,0.1755,0.4051,0.0878,0.3173,0.7990,0.5694,0.8867,0.8867,0.8867,0.8867,0.1755,0.4051,0.0878,0.0878,0.4816,0.4816,0.6571,0.8867,0.2633,0.4929,0.7990,0.5694,0.7990,0.7990,0.4929,0.4929,0.7990,0.5694,0.4929,0.4929,0.4051,0.4051,1.0,1.0];
+const SI=[0.0,0.0,0.4615,0.4672,0.4315,0.4737,0.3361,0.6737,0.2759,0.2856,0.2042,0.1643,0.3064,0.4098,0.6281,0.3517,0.4704,0.4704,0.1577,0.2914,0.6144,0.5704,0.1392,0.1712,0.3093,0.3112,0.3660,0.3110,0.5134,0.5134,0.3195,0.2944,0.1936,0.1288,0.3991,0.7389,0.5176,1.0,0.4683,0.5176,0.3699,0.2592,0.3370,0.1853,0.3112,0.3526,0.5206,0.5501,0.5583,0.3446,0.4749,0.5903,0.8491,0.7961,0.3880,0.5477,0.5144,0.8529,0.3922,0.5477,0.4714,0.3248,0.6908,0.8125];
+
+// MDS座標（KW1〜64順）
+const MDS=[
+[2.485,1.0759,0.2559],[-2.485,-1.0759,-0.2559],[-1.0698,1.5114,0.4624],[-0.7496,-1.1675,-2.2111],
+[0.3053,0.9366,1.8679],[2.0351,-1.2117,-1.6203],[-1.7644,-1.8415,-0.4795],[-0.8653,-0.5853,0.2154],
+[1.3202,1.6106,0.1364],[1.8305,0.8851,-1.3734],[-1.3145,0.446,1.3966],[1.3145,-0.446,-1.3966],
+[1.7644,1.8415,0.4795],[0.8653,0.5853,-0.2154],[-1.8305,-0.8851,1.3734],[-1.3202,-1.6106,-0.1364],
+[0.0951,0.9767,0.5818],[-0.0951,-0.9767,-0.5818],[-1.9689,0.2552,-0.2326],[0.1496,0.0888,-1.5161],
+[-0.5099,1.1602,-1.621],[-1.0202,1.8858,-0.1112],[-1.4702,-0.4018,-1.9874],[-2.6896,1.0209,-0.0089],
+[1.1099,1.6507,-1.1497],[-0.2996,1.1201,-0.3349],[-1.6747,1.695,-1.7405],[1.6747,-1.695,1.7405],
+[-0.1446,-1.351,-0.0082],[0.1446,1.351,0.0082],[0.9541,-0.9293,1.9641],[0.0549,-2.1855,1.2692],
+[1.9689,-0.2552,0.2326],[-0.1496,-0.0888,1.5161],[-0.3053,-0.9366,-1.8679],[-2.0351,1.2117,1.6203],
+[0.5995,2.3763,0.3601],[0.2108,0.3945,-1.8447],[-0.2108,-0.3945,1.8447],[-0.5995,-2.3763,-0.3601],
+[-0.9541,0.9293,-1.9641],[-0.0549,2.1855,-1.2692],[1.4702,0.4018,1.9874],[2.6896,-1.0209,0.0089],
+[0.2996,-1.1201,0.3349],[-1.1099,-1.6507,1.1497],[1.0202,-1.8858,0.1112],[0.5099,-1.1602,1.621],
+[0.7496,1.1675,2.2111],[1.0698,-1.5114,-0.4624],[-1.5247,0.4861,0.1105],[-0.8157,-0.211,-0.3582],
+[0.8041,0.2796,0.1131],[-0.8041,-0.2796,-0.1131],[-0.8702,0.6769,1.7398],[0.3492,-0.7458,-0.2387],
+[1.5247,-0.4861,-0.1105],[0.8157,0.211,0.3582],[0.8702,-0.6769,-1.7398],[-0.3492,0.7458,0.2387],
+[0.6657,1.4198,-1.4928],[-0.6657,-1.4198,1.4928],[-0.4153,1.7022,2.0916],[0.4153,-1.7022,-2.0916]
+];
+
+// グリッドインデックス→MDS座標
+function gMds(g){ return MDS[G2K[g]]; }
+
+// ── ビュー切り替え ──────────────────────────────────
+let currentView='3d';
+function setView(v){
+  currentView=v;
+  document.getElementById('canvas3d').style.display=v==='3d'?'block':'none';
+  document.getElementById('canvas2d').style.display=v==='2d'?'block':'none';
+  document.getElementById('view3dLegend').style.display=v==='3d'?'block':'none';
+  document.getElementById('view2dLegend').style.display=v==='2d'?'block':'none';
+  document.getElementById('btn3d').style.cssText=v==='3d'
+    ?'padding:3px 10px;border:1px solid var(--purple);background:rgba(180,100,255,0.2);color:var(--purple);font-family:Share Tech Mono,monospace;font-size:10px;cursor:pointer'
+    :'padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:Share Tech Mono,monospace;font-size:10px;cursor:pointer';
+  document.getElementById('btn2d').style.cssText=v==='2d'
+    ?'padding:3px 10px;border:1px solid var(--green);background:rgba(0,200,100,0.15);color:var(--green);font-family:Share Tech Mono,monospace;font-size:10px;cursor:pointer'
+    :'padding:3px 10px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:Share Tech Mono,monospace;font-size:10px;cursor:pointer';
+  if(v==='3d') draw3d();
+  else draw2d();
+}
+
+// ── Rs×SI散布図 ──────────────────────────────────────
+function draw2d(){
+  const canvas=document.getElementById('canvas2d');
+  if(!canvas) return;
+  const W=canvas.offsetWidth, H=300;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#08080f'; ctx.fillRect(0,0,W,H);
+  if(!currentG3d) return;
+
+  const pad={l:28,r:12,t:12,b:28};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  const g=currentG3d, prob=currentProb3d;
+  const nbs=NBS[g];
+  const maxP=prob?Math.max(...prob):0;
+
+  // TOP10セット
+  const top10=prob?[...Array(64).keys()].sort((a,b)=>prob[b]-prob[a]).slice(0,10):[];
+  const top10Set=new Set(top10);
+
+  // 軸ラベル
+  ctx.fillStyle='#334'; ctx.font='9px Share Tech Mono';
+  ctx.textAlign='center';
+  ctx.fillText('Rs →', pad.l+pw/2, H-4);
+  ctx.save(); ctx.translate(10, pad.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('SI →', 0, 0); ctx.restore();
+
+  // 4象限色分け
+  const qTypes=[
+    {x:0,      y:0,      w:0.5, h:0.5, color:'rgba(0,100,60,0.15)',   label:'低Rs・低SI'},
+    {x:0.5,    y:0,      w:0.5, h:0.5, color:'rgba(150,60,0,0.15)',   label:'高Rs・低SI'},
+    {x:0,      y:0.5,    w:0.5, h:0.5, color:'rgba(0,60,150,0.15)',   label:'低Rs・高SI'},
+    {x:0.5,    y:0.5,    w:0.5, h:0.5, color:'rgba(120,0,120,0.15)',  label:'高Rs・高SI'},
+  ];
+  qTypes.forEach(q=>{
+    ctx.fillStyle=q.color;
+    ctx.fillRect(pad.l+q.x*pw, pad.t+(1-(q.y+q.h))*ph, q.w*pw, q.h*ph);
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.font='9px Share Tech Mono';
+    ctx.textAlign='center';
+    ctx.fillText(q.label,
+      pad.l+(q.x+q.w/2)*pw,
+      pad.t+(1-(q.y+q.h/2))*ph+4
+    );
+  });
+
+  // グリッド線
+  ctx.strokeStyle='#1a1a30'; ctx.lineWidth=0.5;
+  [0.25,0.5,0.75].forEach(v=>{
+    const x=pad.l+v*pw;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+    const y=pad.t+(1-v)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+  });
+
+  // 象限境界（Rs=0.5, SI=0.5）
+  ctx.strokeStyle='#2a2a4a'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  const qx=pad.l+0.5*pw, qy=pad.t+0.5*ph;
+  ctx.beginPath(); ctx.moveTo(qx,pad.t); ctx.lineTo(qx,pad.t+ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l,qy); ctx.lineTo(pad.l+pw,qy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 観測卦→変爻先エッジ（6本）
+  const selKw=G2K[g];
+  const selRx=pad.l+RS[selKw]*pw;
+  const selRy=pad.t+(1-SI[selKw])*ph;
+  for(let b=0;b<6;b++){
+    const nbG=g^(1<<b);
+    const nbKw=G2K[nbG];
+    const nbRx=pad.l+RS[nbKw]*pw;
+    const nbRy=pad.t+(1-SI[nbKw])*ph;
+    // エッジ
+    ctx.strokeStyle='rgba(200,168,75,0.4)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(selRx,selRy); ctx.lineTo(nbRx,nbRy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 全ノード描画
+  for(let gi=0;gi<64;gi++){
+    const kw=G2K[gi];
+    const rx=pad.l+RS[kw]*pw;
+    const ry=pad.t+(1-SI[kw])*ph;
+    const isSel=gi===g;
+    const isInit=gi===currentInitG3d;
+    const isNb=nbs.includes(gi);
+    const isMovNb=gi===(g^(1<<currentMovingYao));
+    const isTop=top10Set.has(gi);
+    const p=prob?prob[gi]:0;
+    const alpha=prob?0.15+p/maxP*0.7:0.2;
+
+    let r,fill,stroke;
+    if(isSel){r=9;fill='rgba(200,168,75,0.95)';stroke='#fff';}
+    else if(isInit){r=7;fill='rgba(0,220,220,0.85)';stroke='#00ffff';}
+    else if(isMovNb){r=8;fill='rgba(255,120,40,0.95)';stroke='#ffaa44';}
+    else if(isTop){
+      const rank=top10.indexOf(gi);
+      const br=0.3+(1-rank/10)*0.6;
+      r=4+p/maxP*5; fill=`rgba(0,200,100,${br})`; stroke='rgba(0,255,120,0.5)';
+    } else if(isNb){r=4;fill=`rgba(180,100,255,${alpha})`;stroke='rgba(200,136,255,0.4)';}
+    else{r=2.5;fill=`rgba(60,60,120,${0.2+alpha*0.3})`;stroke='transparent';}
+
+    ctx.beginPath(); ctx.arc(rx,ry,r,0,Math.PI*2);
+    ctx.fillStyle=fill; ctx.fill();
+    if(stroke!=='transparent'){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
+
+    // ラベル（選択・起点・TOP3・隣接卦）
+    const topRank=top10.indexOf(gi);
+    if(isSel||isInit||isMovNb||(isTop&&topRank<3)||isNb){
+      ctx.fillStyle=isSel?'#ffdd88':isInit?'#00ffff':isMovNb?'#ffaa44':isNb?'rgba(200,136,255,0.9)':'rgba(0,200,100,0.9)';
+      ctx.font=`${isSel||isInit||isMovNb?10:8}px Share Tech Mono`;
+      ctx.textAlign='center';
+      const label=isSel?gN(gi):isInit?`起:${gN(gi)}`:isMovNb?`◆${gN(gi)}`:isNb?gN(gi):`${topRank+1}.${gN(gi)}`;
+      ctx.fillText(label,rx,ry-(r+4));
+    }
+  }
+
+  // 軸目盛
+  ctx.fillStyle='#334'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
+  [0,0.5,1.0].forEach(v=>{
+    ctx.fillText(v.toFixed(1),pad.l+v*pw,H-16);
+  });
+  ctx.textAlign='right';
+  [0,0.5,1.0].forEach(v=>{
+    ctx.fillText(v.toFixed(1),pad.l-3,pad.t+(1-v)*ph+3);
+  });
+}
+let cam={rotX:0.3, rotY:0.5, zoom:1.0};
+let drag={active:false, lx:0, ly:0};
+let currentG3d=null, currentProb3d=null, currentInitG3d=null, currentMovingYao=-1, currentMovedG=null;
+
+function project3d(x,y,z){
+  // Y軸回転
+  const cosY=Math.cos(cam.rotY), sinY=Math.sin(cam.rotY);
+  const x1=x*cosY+z*sinY, z1=-x*sinY+z*cosY;
+  // X軸回転
+  const cosX=Math.cos(cam.rotX), sinX=Math.sin(cam.rotX);
+  const y2=y*cosX-z1*sinX, z2=y*sinX+z1*cosX;
+  // 透視投影
+  const fov=4.0*cam.zoom, d=z2+6;
+  return {sx:x1*fov/d, sy:y2*fov/d, d};
+}
+
+function draw3d(){
+  const canvas=document.getElementById('canvas3d');
+  if(!canvas) return;
+  const W=canvas.offsetWidth, H=300;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#08080f'; ctx.fillRect(0,0,W,H);
+  if(!currentG3d) return;
+
+  const cx=W/2, cy=H/2;
+  const g=currentG3d;
+  const initG=currentInitG3d;
+  const prob=currentProb3d;
+  const nbs=NBS[g];
+  const movNbG3d=currentMovingYao>=0 ? g^(1<<currentMovingYao) : -1;
+  const maxP=prob?Math.max(...prob):0;
+  const isInitSame=initG===g;
+
+  // TOP10インデックスセット
+  const top10=prob
+    ?[...Array(64).keys()].sort((a,b)=>prob[b]-prob[a]).slice(0,10)
+    :[];
+  const top10Set=new Set(top10);
+  const top10Rank={};
+  top10.forEach((gi,i)=>top10Rank[gi]=i+1);
+
+  // エッジ描画
+  for(let gi=0;gi<64;gi++){
+    const [x1,y1,z1]=gMds(gi);
+    const p1=project3d(x1,y1,z1);
+    NBS[gi].forEach(gj=>{
+      if(gj<=gi) return;
+      const [x2,y2,z2]=gMds(gj);
+      const p2=project3d(x2,y2,z2);
+      const isNb=gi===g||gj===g;
+      const isTop=top10Set.has(gi)||top10Set.has(gj);
+      ctx.strokeStyle=isNb?'rgba(200,168,75,0.6)':isTop?'rgba(100,200,100,0.35)':'rgba(60,60,120,0.5)';
+      ctx.lineWidth=isNb?2:0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx+p1.sx*80, cy-p1.sy*80);
+      ctx.lineTo(cx+p2.sx*80, cy-p2.sy*80);
+      ctx.stroke();
+    });
+  }
+
+  // ノード描画（奥から手前の順）
+  const nodes=Array.from({length:64},(_,gi)=>{
+    const [x,y,z]=gMds(gi);
+    const p=project3d(x,y,z);
+    return {gi,px:cx+p.sx*80, py:cy-p.sy*80, d:p.d};
+  }).sort((a,b)=>b.d-a.d);
+
+  nodes.forEach(({gi,px,py})=>{
+    const isSel=gi===g;
+    const isInit=gi===initG && !isInitSame;
+    const isNb=nbs.includes(gi);
+    const isMovNb=gi===movNbG3d;
+    const isTop=top10Set.has(gi);
+    const rank=top10Rank[gi];
+    const p=prob?prob[gi]:0;
+    const alpha=prob?0.2+p/maxP*0.8:0.3;
+
+    let r, fillStyle, strokeStyle;
+    if(isSel){
+      r=10; fillStyle='rgba(200,168,75,0.95)'; strokeStyle='#fff';
+    } else if(isInit){
+      r=8; fillStyle='rgba(0,200,220,0.85)'; strokeStyle='#00ffff';
+    } else if(isMovNb){
+      r=9; fillStyle='rgba(255,120,40,0.95)'; strokeStyle='#ffaa44';
+    } else if(isNb){
+      r=6+p/maxP*4;
+      fillStyle=`rgba(180,100,255,${alpha})`;
+      strokeStyle='rgba(200,136,255,0.6)';
+    } else if(isTop){
+      // TOP10：緑系でランクに応じた輝度
+      const brightness=0.3+(1-rank/10)*0.6;
+      r=4+p/maxP*6;
+      fillStyle=`rgba(0,200,100,${brightness})`;
+      strokeStyle=`rgba(0,255,120,0.5)`;
+    } else {
+      r=2+p/maxP*3;
+      fillStyle=`rgba(80,80,160,${0.35+alpha*0.4})`;
+      strokeStyle='rgba(100,100,200,0.4)';
+    }
+
+    ctx.beginPath();
+    ctx.arc(px,py,r,0,Math.PI*2);
+    ctx.fillStyle=fillStyle;
+    ctx.fill();
+    if(strokeStyle!=='transparent'){
+      ctx.strokeStyle=strokeStyle;
+      ctx.lineWidth=isSel?2:1;
+      ctx.stroke();
+    }
+
+    // ラベル（選択卦・隣接・TOP5のみ）
+    if(isSel||isMovNb||(isTop&&rank<=5)||isInit){
+      ctx.fillStyle=isSel?'#ffdd88':isMovNb?'#ffaa44':isInit?'#00ffff':rank===1?'#aaffcc':'rgba(0,200,100,0.8)';
+      ctx.font=`${isSel||isInit||isMovNb?11:8}px Share Tech Mono`;
+      ctx.textAlign='center';
+      ctx.fillText(isSel?gN(gi):isMovNb?`◆${gN(gi)}`:isInit?`起:${gN(gi)}`:`${rank}.${gN(gi)}`, px, py-(r+4));
+    }
+  });
+}
+
+function initCanvas3d(){
+  const canvas=document.getElementById('canvas3d');
+  if(!canvas) return;
+
+  // マウス
+  canvas.addEventListener('mousedown',e=>{drag.active=true;drag.lx=e.clientX;drag.ly=e.clientY;});
+  canvas.addEventListener('mousemove',e=>{
+    if(!drag.active) return;
+    cam.rotY+=(e.clientX-drag.lx)*0.01;
+    cam.rotX+=(e.clientY-drag.ly)*0.01;
+    drag.lx=e.clientX; drag.ly=e.clientY;
+    draw3d();
+  });
+  canvas.addEventListener('mouseup',()=>drag.active=false);
+  canvas.addEventListener('wheel',e=>{cam.zoom=Math.max(0.3,Math.min(3,cam.zoom-e.deltaY*0.001));draw3d();});
+
+  // タッチ
+  let lastDist=0;
+  canvas.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){drag.active=true;drag.lx=e.touches[0].clientX;drag.ly=e.touches[0].clientY;}
+    else if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      lastDist=Math.sqrt(dx*dx+dy*dy);
+    }
+  },{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&drag.active){
+      cam.rotY+=(e.touches[0].clientX-drag.lx)*0.01;
+      cam.rotX+=(e.touches[0].clientY-drag.ly)*0.01;
+      drag.lx=e.touches[0].clientX; drag.ly=e.touches[0].clientY;
+      draw3d();
+    } else if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      cam.zoom=Math.max(0.3,Math.min(3,cam.zoom*(dist/lastDist)));
+      lastDist=dist;
+      draw3d();
+    }
+  },{passive:true});
+  canvas.addEventListener('touchend',()=>drag.active=false,{passive:true});
+}
+
+// クラスタラベル（KW1〜64順、0-indexed）
+const LABELS_2=[0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,1,0,1,0,1,0,0,1,0,0,0,0,1,1,0,1,1,1,0,1,0,0,0,1,1,0,0,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,0,1,0,0,1,0,1];
+const LABELS_4=[0,1,0,1,3,2,1,1,0,0,3,2,0,0,3,1,0,2,1,1,1,0,1,1,0,0,1,2,2,0,3,2,2,3,1,3,0,1,3,2,1,0,3,2,2,3,2,3,3,2,1,1,0,1,3,2,2,0,2,0,0,3,3,2];
+const CLUSTER2_NAMES=['クラスタA','クラスタB'];
+const CLUSTER4_NAMES=['クラスタ0','クラスタ1','クラスタ2','クラスタ3'];
+const CLUSTER_COLORS=['#44dd88','#4488ff','#ffcc44','#ff5566'];
+
+function b2i(b){let v=0;for(let k=0;k<6;k++)v|=(b[k]<<k);return v;}
+const K2G=new Array(64),G2K=new Array(64);
+for(let k=0;k<64;k++){const g=b2i(BITS[k]);K2G[k]=g;G2K[g]=k;}
+const gN=g=>KN[G2K[g]], gR=g=>RS[G2K[g]], gS=g=>SI[G2K[g]], gK=g=>G2K[g];
+const KISEI=K2G[62], MIZAI=K2G[63], KEN=K2G[0], KON=K2G[1];
+
+const NBS=[];
+for(let i=0;i<64;i++){NBS[i]=[];for(let b=0;b<6;b++)NBS[i].push(i^(1<<b));}
+
+function popcount(x){let c=0;while(x){c+=x&1;x>>=1;}return c;}
+function hamming(a,b){return popcount(a^b);}
+
+// ── スパースH×v ──────────────────────────────────
+const GAMMA=1.0;
+function Hv(psiR,psiI,out_r,out_i){
+  for(let i=0;i<64;i++){
+    let sr=0,si_=0;
+    const nb=NBS[i];
+    for(let k=0;k<6;k++){sr+=GAMMA*psiR[nb[k]];si_+=GAMMA*psiI[nb[k]];}
+    out_r[i]=sr; out_i[i]=si_;
+  }
+}
+
+// ── RK4ステップ（Array版・互換性最大化） ──────────
+function rk4Step(psiR,psiI,dt){
+  const n=64;
+  const dr1=new Array(n).fill(0),di1=new Array(n).fill(0);
+  const dr2=new Array(n).fill(0),di2=new Array(n).fill(0);
+  const dr3=new Array(n).fill(0),di3=new Array(n).fill(0);
+  const dr4=new Array(n).fill(0),di4=new Array(n).fill(0);
+  const tr=new Array(n).fill(0);
+
+  // k1
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*psiI[nb[k]];
+    dr1[i]=s;
+  }
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*psiR[nb[k]];
+    di1[i]=-s;
+  }
+
+  const r2=new Array(n),i2=new Array(n);
+  for(let i=0;i<n;i++){r2[i]=psiR[i]+dr1[i]*dt/2; i2[i]=psiI[i]+di1[i]*dt/2;}
+
+  // k2
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*i2[nb[k]];
+    dr2[i]=s;
+  }
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*r2[nb[k]];
+    di2[i]=-s;
+  }
+
+  const r3=new Array(n),i3=new Array(n);
+  for(let i=0;i<n;i++){r3[i]=psiR[i]+dr2[i]*dt/2; i3[i]=psiI[i]+di2[i]*dt/2;}
+
+  // k3
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*i3[nb[k]];
+    dr3[i]=s;
+  }
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*r3[nb[k]];
+    di3[i]=-s;
+  }
+
+  const r4=new Array(n),i4=new Array(n);
+  for(let i=0;i<n;i++){r4[i]=psiR[i]+dr3[i]*dt; i4[i]=psiI[i]+di3[i]*dt;}
+
+  // k4
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*i4[nb[k]];
+    dr4[i]=s;
+  }
+  for(let i=0;i<n;i++){
+    let s=0; const nb=NBS[i];
+    for(let k=0;k<6;k++) s+=GAMMA*r4[nb[k]];
+    di4[i]=-s;
+  }
+
+  const nr=new Array(n),ni=new Array(n);
+  for(let i=0;i<n;i++){
+    nr[i]=psiR[i]+(dr1[i]+2*dr2[i]+2*dr3[i]+dr4[i])*dt/6;
+    ni[i]=psiI[i]+(di1[i]+2*di2[i]+2*di3[i]+di4[i])*dt/6;
+  }
+  return {nr,ni};
+}
+
+// ── 量子観測 ──────────────────────────────────────
+// ── 干支定義 ──────────────────────────────────────
+const KAN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const SHI=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+
+function kanshi(now){
+  const kan = now % 10;
+  const shi = now % 12;
+  return {kan, shi, name: KAN[kan]+SHI[shi], u: kan*12+shi};
+}
+
+// Walsh基底ベクトル（グリッドインデックスm→64次元ベクトル）
+function walshVec(m){
+  const v = new Array(64);
+  for(let x=0;x<64;x++){
+    let bits=0, tmp=m&x;
+    while(tmp){bits+=tmp&1;tmp>>=1;}
+    v[x] = (bits%2===0)?1.0:-1.0;
+  }
+  // 正規化
+  const norm = Math.sqrt(64);
+  return v.map(x=>x/norm);
+}
+
+function quantumObserve(){
+  const now = Date.now();
+
+  // 干支（表示用）
+  const ks = kanshi(now);
+
+  // 初期状態：δ（now%64の1点集中）
+  const initG = now % 64;
+  const t = 1.0 + (now % 1000) / 1000 * 12.0;
+  const steps = Math.max(12, Math.floor(t*4));
+  const dt = t/steps;
+
+  let psiR=new Array(64).fill(0); psiR[initG]=1.0;
+  let psiI=new Array(64).fill(0);
+
+  for(let k=0;k<steps;k++){
+    const res=rk4Step(psiR,psiI,dt);
+    psiR=res.nr; psiI=res.ni;
+  }
+
+  const prob=new Array(64);
+  for(let i=0;i<64;i++) prob[i]=Math.pow(psiR[i],2)+Math.pow(psiI[i],2);
+  let s=0; for(let i=0;i<64;i++) s+=prob[i];
+  for(let i=0;i<64;i++) prob[i]/=s;
+
+  const r=Math.random();
+  let cum=0, selected=0;
+  for(let i=0;i<64;i++){cum+=prob[i];if(r<cum){selected=i;break;}}
+
+  return {selected, prob, t, initG, now, kanshi: ks};
+}
+
+// ── 履歴 ──────────────────────────────────────────
+const history=[];
+
+// ── 観測実行 ──────────────────────────────────────
+function observe(){
+  const btn=document.getElementById('obsBtn');
+  btn.classList.add('firing');
+  btn.textContent='観測中...';
+
+  setTimeout(()=>{
+    const {selected:g, prob, t, initG, now, kanshi}=quantumObserve();
+    btn.classList.remove('firing');
+    btn.textContent='観　測';
+
+    // 履歴
+    history.unshift({g, name:gN(g), kw:gK(g)+1});
+    if(history.length>12) history.pop();
+    renderHistory();
+
+    // 表示
+    document.getElementById('result').style.display='flex';
+    renderResult(g, prob, t, initG, now, kanshi);
+
+    // パルスアニメ
+    const el=document.getElementById('kuaName');
+    el.classList.remove('pulsing');
+    void el.offsetWidth;
+    el.classList.add('pulsing');
+  }, 80);
+}
+
+function renderResult(g, prob, t, initG, now, kanshi){
+  const currentNow=now||Date.now();
+  const kw=gK(g), bits=BITS[kw];
+  const rs=gR(g), si=gS(g);
+  const bc=popcount(g);
+  const hd=hamming(g, KEN);
+
+  // 卦名
+  document.getElementById('kuaName').textContent=gN(g);
+  const ksName = kanshi ? kanshi.name : '';
+  document.getElementById('kuaKw').textContent=`KW${kw+1}　${g.toString(2).padStart(6,'0')}　t=${t.toFixed(2)}　${ksName}`;
+
+  // 爻ビジュアル（b5=上爻→b0=初爻）
+  const yaoWrap=document.getElementById('yaoWrap');
+  // 動爻決定：6状態循環グラフ上の量子ウォーク
+  // 初期状態: now%6 の爻に集中
+  // 時刻: (now%500)/500 * 2π で発展
+  const initYao = currentNow % 6;
+  const tYao = (currentNow % 500) / 500 * 2 * Math.PI;
+  const dt6 = tYao / 20;
+  let yr = new Array(6).fill(0); yr[initYao] = 1.0;
+  let yi = new Array(6).fill(0);
+
+  // 6状態循環グラフRK4（隣接=前後の爻）
+  for(let step=0;step<20;step++){
+    const nyr=new Array(6).fill(0), nyi=new Array(6).fill(0);
+    const dr=new Array(6).fill(0), di=new Array(6).fill(0);
+    // k1
+    for(let j=0;j<6;j++){
+      const l=(j+5)%6, r=(j+1)%6;
+      dr[j]=yi[l]+yi[r]; di[j]=-(yr[l]+yr[r]);
+    }
+    const r2=yr.map((v,j)=>v+dr[j]*dt6/2);
+    const i2=yi.map((v,j)=>v+di[j]*dt6/2);
+    const dr2=new Array(6).fill(0),di2=new Array(6).fill(0);
+    for(let j=0;j<6;j++){
+      const l=(j+5)%6,r=(j+1)%6;
+      dr2[j]=i2[l]+i2[r]; di2[j]=-(r2[l]+r2[r]);
+    }
+    for(let j=0;j<6;j++){
+      nyr[j]=yr[j]+(dr[j]+dr2[j])*dt6/2;
+      nyi[j]=yi[j]+(di[j]+di2[j])*dt6/2;
+    }
+    yr=nyr; yi=nyi;
+  }
+
+  // 確率→最大爻が動爻
+  const yaoProb=Array.from({length:6},(_,j)=>yr[j]*yr[j]+yi[j]*yi[j]);
+  const movingYao=yaoProb.indexOf(Math.max(...yaoProb));
+
+  yaoWrap.innerHTML='';
+  for(let b=5;b>=0;b--){
+    const v=bits[b];
+    const isMoving=b===movingYao;
+
+    // この爻だけ反転した隣接卦のRs・SI
+    const neighborG = g ^ (1<<b);
+    const neighborKw = G2K[neighborG];
+    const nRs = RS[neighborKw];
+    const nSi = SI[neighborKw];
+    const dRsB = nRs - rs;
+    const dSiB = nSi - si;
+    const dRsBStr=(dRsB>=0?'+':'')+dRsB.toFixed(3);
+    const dSiBStr=(dSiB>=0?'+':'')+dSiB.toFixed(3);
+    const dRsBCol=dRsB>0?'#ff8844':dRsB<0?'#44dd88':'#445';
+    const dSiBCol=dSiB>0?'#ff6688':dSiB<0?'#44ddcc':'#445';
+
+    const row=document.createElement('div');
+    row.className='yao';
+    row.style.cssText=`display:flex;align-items:center;gap:6px;flex-wrap:nowrap;width:100%;${isMoving?'background:rgba(200,168,75,0.08);border-radius:3px;padding:2px 4px;':''}`;
+
+    const num=document.createElement('span');
+    num.className='yao-num';
+    const yaoNames=['初爻','二爻','三爻','四爻','五爻','上爻'];
+    num.textContent=yaoNames[b];
+    if(isMoving) num.style.color='var(--gold)';
+
+    if(v){
+      const line=document.createElement('div');
+      line.className='yao-line yang';
+      if(isMoving) line.style.background='var(--gold)';
+      row.appendChild(num); row.appendChild(line);
+    } else {
+      const wrap=document.createElement('div');
+      wrap.style.cssText='display:flex;gap:8px;width:60px;flex-shrink:0';
+      const l=document.createElement('div'); l.className='yao-line yin-l';
+      const r2=document.createElement('div'); r2.className='yao-line yin-r';
+      if(isMoving){l.style.background='var(--gold)';r2.style.background='var(--gold)';}
+      wrap.appendChild(l); wrap.appendChild(r2);
+      row.appendChild(num); row.appendChild(wrap);
+    }
+
+    // ΔRs・ΔSI（動爻は強調）
+    const delta=document.createElement('span');
+    delta.style.cssText=`font-size:9px;white-space:nowrap;margin-left:4px;flex-shrink:0;${isMoving?'font-weight:bold;':'opacity:0.5;'}`;
+    delta.innerHTML=`<span style="color:${dRsBCol}">Rs${dRsBStr}</span> <span style="color:${dSiBCol}">SI${dSiBStr}</span>${isMoving?' ◆':''}`;
+    row.appendChild(delta);
+
+    yaoWrap.appendChild(row);
+  }
+
+  // 起点→観測のΔRs・ΔSI
+  if(initG!==undefined){
+    const initKw2=G2K[initG];
+    const dRs=rs-RS[initKw2];
+    const dSi=si-SI[initKw2];
+    const dRsStr=(dRs>=0?'+':'')+dRs.toFixed(4);
+    const dSiStr=(dSi>=0?'+':'')+dSi.toFixed(4);
+    const dRsCol=dRs>0?'#ff8844':dRs<0?'#44dd88':'#445';
+    const dSiCol=dSi>0?'#ff6688':dSi<0?'#44ddcc':'#445';
+    const delta=document.createElement('div');
+    delta.style.cssText='margin-top:8px;padding:6px 8px;border:1px solid var(--border);font-size:10px;display:flex;gap:16px;justify-content:center';
+    delta.innerHTML=`
+      <span style="color:var(--text)">起点→観測</span>
+      <span>ΔRs <span style="color:${dRsCol}">${dRsStr}</span></span>
+      <span>ΔSI <span style="color:${dSiCol}">${dSiStr}</span></span>
+    `;
+    yaoWrap.appendChild(delta);
+  }
+  const rsColor=rs>0.7?'#ff8844':rs>0.3?'#ccaa44':'#44dd88';
+  const siColor=si>0.7?'#ff6688':si>0.3?'#8888ff':'#44ddcc';
+  document.getElementById('rsBar').style.cssText=`width:${rs*100}%;background:${rsColor}`;
+  document.getElementById('siBar').style.cssText=`width:${si*100}%;background:${siColor}`;
+  document.getElementById('rsVal').textContent=rs.toFixed(4);
+  document.getElementById('rsVal').style.color=rsColor;
+  document.getElementById('siVal').textContent=si.toFixed(4);
+  document.getElementById('siVal').style.color=siColor;
+  // Walsh次数＋モード統合表示（modeStr定義の前に仮置き）
+  const walshDeg=popcount(g);
+  document.getElementById('obsProb').textContent=`${(prob[g]*100).toFixed(3)}%`;
+
+  // Quantumモード分類
+  const isKisei=g===KISEI, isMizai=g===MIZAI, isKen=g===KEN, isKon=g===KON;
+  let modeStr, modeSub;
+  if(isKisei){
+    modeStr='既済モード極点'; modeSub='Walsh高周波(次数6)の正極点　101010';
+  } else if(isMizai){
+    modeStr='未済モード極点'; modeSub='Walsh高周波(次数6)の正極点　010101';
+  } else if(isKen){
+    modeStr='低周波モード極点（乾）'; modeSub='Walsh DC成分(次数0)の正極点　111111';
+  } else if(isKon){
+    modeStr='低周波モード極点（坤）'; modeSub='Walsh DC成分(次数0)の負極点　000000';
+  } else if(walshDeg===6){
+    modeStr='高周波圏（次数6）'; modeSub='既済・未済と同じWalsh次数';
+  } else if(walshDeg<=1){
+    modeStr='低周波圏（次数0-1）'; modeSub='乾・坤に近い構造';
+  } else if(walshDeg===3){
+    modeStr='中周波（次数3）'; modeSub='乾坤距離3の中間帯';
+  } else {
+    modeStr=`中間帯（次数${walshDeg}）`; modeSub='';
+  }
+  document.getElementById('walshDeg').textContent=modeStr;
+
+  // 確率分布TOP10バー表示（縦並び）
+  const mini=document.getElementById('miniGrid'); mini.innerHTML='';
+  mini.style.cssText='display:flex;flex-direction:column;gap:4px;width:100%;';
+  const sorted=[...Array(64).keys()].sort((a,b)=>prob[b]-prob[a]);
+  const maxP2=prob[sorted[0]];
+  sorted.slice(0,10).forEach((gi,rank)=>{
+    const p=prob[gi];
+    const isSel=gi===g, isK=gi===KISEI, isM=gi===MIZAI;
+    const col=isSel?'var(--gold)':isK?'#ff8844':isM?'#4488ff':'var(--purple)';
+    const bar=document.createElement('div');
+    bar.style.cssText='display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #0d0d1a;font-size:11px;width:100%;';
+    bar.innerHTML=`
+      <span style="width:16px;color:#445;text-align:right;flex-shrink:0">${rank+1}</span>
+      <span style="width:32px;color:${isSel?'var(--gold)':'var(--bright)'};flex-shrink:0">${isSel?'►':''} ${gN(gi)}</span>
+      <div style="flex:1;height:8px;background:#111;min-width:0"><div style="height:8px;width:${p/maxP2*100}%;background:${col}"></div></div>
+      <span style="width:48px;text-align:right;color:${col};flex-shrink:0">${(p*100).toFixed(2)}%</span>
+    `;
+    mini.appendChild(bar);
+  });
+
+  // ── 分布エントロピー ──
+  let H=0;
+  for(let i=0;i<64;i++) if(prob[i]>1e-12) H-=prob[i]*Math.log2(prob[i]);
+  const Hmax=6.0;
+  const concentration=(1-H/Hmax)*100;
+  document.getElementById('entropyVal').textContent=H.toFixed(4)+' bits';
+  document.getElementById('entropyPct').textContent=concentration.toFixed(1)+'%';
+  const eCol=concentration>50?'#ff8844':concentration>20?'#ffcc44':'#44dd88';
+  document.getElementById('entropyBar').style.cssText=`width:${concentration}%;background:${eCol}`;
+
+  // ── クラスタ分布 ──
+  const kwG=G2K[g]; // 観測卦のKWインデックス
+  const selCluster2=LABELS_2[kwG];
+  const selCluster4=LABELS_4[kwG];
+
+  // クラスタごとの確率合計（k=2）
+  const cProb2=[0,0];
+  for(let i=0;i<64;i++) cProb2[LABELS_2[G2K[i]]]+=prob[i];
+
+  // クラスタごとの確率合計（k=4）
+  const cProb4=[0,0,0,0];
+  for(let i=0;i<64;i++) cProb4[LABELS_4[G2K[i]]]+=prob[i];
+
+  const clEl=document.getElementById('clusterRows'); clEl.innerHTML='';
+
+  // k=2
+  const h2=document.createElement('div');
+  h2.style.cssText='font-size:9px;color:var(--text);margin-bottom:4px;margin-top:2px';
+  h2.textContent='k=2 クラスタ';
+  clEl.appendChild(h2);
+
+  cProb2.forEach((p,c)=>{
+    const isSel=c===selCluster2;
+    const col=c===0?'#44dd88':'#4488ff';
+    const row=document.createElement('div');
+    row.style.cssText=`display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #0d0d1a;font-size:10px;${isSel?'border-left:2px solid '+col+';padding-left:4px':''}`;
+    row.innerHTML=`
+      <span style="width:60px;color:${isSel?col:'var(--text)'};flex-shrink:0">${isSel?'►':''} C${c}</span>
+      <div style="flex:1;height:6px;background:#111;min-width:0"><div style="height:6px;width:${p*100}%;background:${col};opacity:${isSel?1:0.4}"></div></div>
+      <span style="width:44px;text-align:right;color:${isSel?col:'#445'};flex-shrink:0">${(p*100).toFixed(1)}%</span>
+    `;
+    clEl.appendChild(row);
+  });
+
+  // k=4
+  const h4=document.createElement('div');
+  h4.style.cssText='font-size:9px;color:var(--text);margin-top:8px;margin-bottom:4px';
+  h4.textContent='k=4 クラスタ';
+  clEl.appendChild(h4);
+
+  cProb4.forEach((p,c)=>{
+    const isSel=c===selCluster4;
+    const col=CLUSTER_COLORS[c];
+    const row=document.createElement('div');
+    row.style.cssText=`display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #0d0d1a;font-size:10px;${isSel?'border-left:2px solid '+col+';padding-left:4px':''}`;
+    row.innerHTML=`
+      <span style="width:60px;color:${isSel?col:'var(--text)'};flex-shrink:0">${isSel?'►':''} C${c}</span>
+      <div style="flex:1;height:6px;background:#111;min-width:0"><div style="height:6px;width:${p*100}%;background:${col};opacity:${isSel?1:0.4}"></div></div>
+      <span style="width:44px;text-align:right;color:${isSel?col:'#445'};flex-shrink:0">${(p*100).toFixed(1)}%</span>
+    `;
+    clEl.appendChild(row);
+  });
+  // ── 3D描画 ──
+  currentG3d=g;
+  currentProb3d=prob;
+  currentInitG3d=initG;
+  currentMovingYao=movingYao;
+  currentMovedG=g^(1<<movingYao);
+  if(currentView==='3d') draw3d();
+  else draw2d();
+}
+
+function renderHistory(){
+  const el=document.getElementById('histList'); el.innerHTML='';
+  history.forEach(h=>{
+    const d=document.createElement('div');
+    d.className='hist-item';
+    d.innerHTML=`<span class="hist-name">${h.name}</span><span class="hist-kw"> KW${h.kw}</span>`;
+    el.appendChild(d);
+  });
+}
+
+window.addEventListener('load', initCanvas3d);
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#080810"/>
+  <rect x="128" y="68" width="256" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="128" y="120" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="276" y="120" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="128" y="172" width="256" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="128" y="224" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="276" y="224" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="128" y="276" width="256" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="128" y="328" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <rect x="276" y="328" width="108" height="26" fill="#c8a84b" rx="4"/>
+  <text x="256" y="430" font-family="serif" font-size="36" fill="#c8a84b" text-anchor="middle">構造分布立卦</text>
+  <text x="256" y="472" font-family="monospace" font-size="18" fill="#445" text-anchor="middle">量子ウォークモデル</text>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#080810"/>
+  <!-- 易経の卦シンボル（坤→乾への変化イメージ） -->
+  <!-- 上爻：陽 -->
+  <rect x="48" y="28" width="96" height="10" fill="#c8a84b" rx="2"/>
+  <!-- 五爻：陰 -->
+  <rect x="48" y="50" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <rect x="104" y="50" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <!-- 四爻：陽 -->
+  <rect x="48" y="72" width="96" height="10" fill="#c8a84b" rx="2"/>
+  <!-- 三爻：陰 -->
+  <rect x="48" y="94" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <rect x="104" y="94" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <!-- 二爻：陽 -->
+  <rect x="48" y="116" width="96" height="10" fill="#c8a84b" rx="2"/>
+  <!-- 初爻：陰 -->
+  <rect x="48" y="138" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <rect x="104" y="138" width="40" height="10" fill="#c8a84b" rx="2"/>
+  <!-- テキスト -->
+  <text x="96" y="175" font-family="serif" font-size="14" fill="#c8a84b" text-anchor="middle">構造分布立卦</text>
+</svg>
