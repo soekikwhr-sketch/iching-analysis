@@ -5,26 +5,73 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="立卦">
-<meta name="theme-color" content="#c8a84b">
+<meta name="apple-mobile-web-app-title" content="Q₆量子ウォーク立卦">
+<meta name="theme-color" content="#010a06">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.svg">
-<title>構造分布立卦</title>
+<title>Q₆量子ウォーク立卦</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Serif+JP:wght@300;400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Serif+JP:wght@300;400;700&family=VT323&display=swap');
   :root {
-    --bg:#080810; --border:#1a1a30;
-    --gold:#c8a84b; --gold-dim:#3a2e10;
-    --green:#00ff88; --purple:#cc88ff;
-    --text:#7788aa; --bright:#ccdde8;
+    --bg:#010a06; --border:#0a2a1a;
+    --gold:#00ff41; --gold-dim:#002a0a;
+    --green:#00ffcc; --purple:#00aaff;
+    --text:#0a7a40; --bright:#00ff88;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body { max-width:100vw; overflow-x:hidden; }
   body { font-family:'Share Tech Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px 40px; }
 
+  /* スキャンライン */
+  body::before {
+    content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+    background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.015) 2px, rgba(0,255,65,0.015) 4px);
+    pointer-events:none; z-index:9999;
+  }
+
+  /* グリッド背景 */
+  body::after {
+    content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+    background-image:
+      linear-gradient(rgba(0,255,65,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,65,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none; z-index:0;
+  }
+
+  /* コンテンツをz-index上に */
+  header, button, .result, .history-wrap { position:relative; z-index:1; }
+
+  /* 枠線にグロー */
+  .struct { box-shadow: 0 0 6px rgba(0,255,65,0.08), inset 0 0 6px rgba(0,255,65,0.03); }
+  .kua-main { box-shadow: 0 0 10px rgba(0,255,65,0.1), inset 0 0 10px rgba(0,255,65,0.03); }
+
+  /* グリッチアニメーション（タイトル） */
+  @keyframes glitch {
+    0%,95%,100% { text-shadow: 0 0 8px var(--gold), 0 0 20px rgba(0,255,65,0.4); transform: none; }
+    96% { text-shadow: -2px 0 #00ffcc, 2px 0 #ff0040; transform: translateX(1px); }
+    97% { text-shadow: 2px 0 #00ffcc, -2px 0 #ff0040; transform: translateX(-1px); }
+    98% { text-shadow: 0 0 8px var(--gold); transform: none; }
+  }
+  header h1 { animation: glitch 6s infinite; }
+
+  /* パルスアニメーション（ボーダー） */
+  @keyframes borderPulse {
+    0%,100% { border-color: var(--gold); box-shadow: 0 0 8px rgba(0,255,65,0.2), inset 0 0 8px rgba(0,255,65,0.05); }
+    50% { border-color: rgba(0,255,65,0.5); box-shadow: 0 0 14px rgba(0,255,65,0.35), inset 0 0 12px rgba(0,255,65,0.08); }
+  }
+  .obs-btn { animation: borderPulse 3s ease-in-out infinite; }
+  .obs-btn:hover { animation: none; }
+
+  /* グロー */
+  header h1 {
+    font-family:'VT323','Share Tech Mono',monospace;
+    font-weight:400; font-size:28px; color:var(--gold); letter-spacing:6px; margin-bottom:6px;
+    text-shadow: 0 0 8px var(--gold), 0 0 20px rgba(0,255,65,0.4);
+  }
+  header .sub { font-size:10px; color:#1a5a2a; letter-spacing:1px; line-height:1.8; }
+
   header { text-align:center; margin-bottom:28px; width:100%; }
-  header h1 { font-family:'Noto Serif JP',serif; font-weight:300; font-size:22px; color:var(--gold); letter-spacing:4px; margin-bottom:6px; }
-  header .sub { font-size:10px; color:#445; letter-spacing:1px; line-height:1.8; }
 
   /* 観測ボタン */
   .obs-btn {
@@ -33,25 +80,27 @@
     border: 1px solid var(--gold);
     background: transparent;
     color: var(--gold);
-    font-family: 'Noto Serif JP', serif;
+    font-family: 'Share Tech Mono', monospace;
     font-size: 18px;
-    letter-spacing: 4px;
+    letter-spacing: 6px;
     cursor: pointer;
     transition: all .2s;
     margin-bottom: 28px;
     position: relative;
     overflow: hidden;
+    text-shadow: 0 0 8px var(--gold);
+    box-shadow: 0 0 8px rgba(0,255,65,0.2), inset 0 0 8px rgba(0,255,65,0.05);
   }
-  .obs-btn:hover { background: var(--gold-dim); }
+  .obs-btn:hover { background: var(--gold-dim); box-shadow: 0 0 16px rgba(0,255,65,0.4), inset 0 0 12px rgba(0,255,65,0.1); }
   .obs-btn:active { transform: scale(0.98); }
-  .obs-btn.firing { border-color: var(--purple); color: var(--purple); }
+  .obs-btn.firing { border-color: var(--purple); color: var(--purple); text-shadow: 0 0 8px var(--purple); box-shadow: 0 0 12px rgba(0,170,255,0.4); }
 
   /* 結果メイン */
   .result { width:min(360px, 94vw); display:flex; flex-direction:column; gap:14px; }
 
   /* 卦名大表示 */
   .kua-main { text-align:center; padding:20px; border:1px solid var(--border); }
-  .kua-name { font-family:'Noto Serif JP',serif; font-size:48px; color:var(--gold); line-height:1; }
+  .kua-name { font-family:'Noto Serif JP',serif; font-size:48px; color:var(--gold); line-height:1; text-shadow: 0 0 10px var(--gold), 0 0 30px rgba(0,255,65,0.3); }
   .kua-kw   { font-size:10px; color:#445; margin-top:4px; letter-spacing:1px; word-break:break-all; }
 
   /* ビット列 */
@@ -121,17 +170,76 @@
 <body>
 
 <header>
-  <h1>構造分布立卦</h1>
-  <div class="sub" style="color:var(--text);font-size:10px;margin-top:4px">量子ウォークモデル</div>
+  <div style="font-size:18px;letter-spacing:4px;color:var(--gold);margin-bottom:4px">䷀　易経六十四卦　䷁</div>
+  <h1>Q₆量子ウォーク立卦</h1>
+  <div class="sub" style="color:var(--text);font-size:10px;margin-top:4px;line-height:1.8">Q₆（6次元超立方体グラフ）上の<br>連続時間量子ウォーク（CTQW）に基づく構造的サンプリング</div>
 </header>
 
-<button class="obs-btn" id="obsBtn" onclick="observe()">観　測</button>
+<button class="obs-btn" id="obsBtn" onclick="observe()">立　卦</button>
+
+<!-- 注釈ボタン -->
+<div style="text-align:center;margin-top:8px">
+  <button onclick="document.getElementById('infoModal').style.display='flex'"
+    style="background:transparent;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 14px;cursor:pointer;opacity:0.6">
+    ℹ️ このツールについて
+  </button>
+</div>
+
+<!-- 注釈モーダル -->
+<div id="infoModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box"
+  onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#0d0d1a;border:1px solid var(--border);border-radius:4px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;padding:20px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);line-height:1.7">
+
+    <div style="font-size:13px;color:var(--gold);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
+      Q₆量子ウォーク立卦 — 注釈
+    </div>
+
+    <div style="color:var(--green);margin-bottom:6px;font-size:11px">■ モデルの定義</div>
+    <div style="margin-bottom:12px;opacity:0.85">
+      本ツールはQ₆（6次元超立方体グラフ）上の<b style="color:var(--gold)">連続時間量子ウォーク（CTQW）</b>に基づく構造的サンプリングを実装しています。<br><br>
+      ハミルトニアン H = γA（γ=1.0、Aは隣接行列）でシュレーディンガー方程式を数値的に解き（RK4法）、ボルン則により卦を観測します。<br><br>
+      初期状態はタップ時刻 now%64 で決まるδ状態（単一頂点集中）。観測時刻は now%1000 から決定。
+    </div>
+
+    <div style="color:var(--green);margin-bottom:6px;font-size:11px">■ 各指標の説明</div>
+    <div style="margin-bottom:12px;opacity:0.85">
+      <b style="color:var(--purple)">Rs（不安定度）</b>：卦の構造的不安定さ。0〜1、高いほど変化しやすい状態。<br><br>
+      <b style="color:var(--purple)">SI（構造的孤立度）</b>：MDS空間での境界距離。0〜1、高いほど孤立した位置にある。<br><br>
+      <b style="color:var(--purple)">Walsh次数</b>：固有モードの周波数帯。低周波（安定・広域）〜高周波（不安定・局所）。<br><br>
+      <b style="color:var(--purple)">分布エントロピー H</b>：この試行での確率分布の広がり。最大6.000 bits（完全一様）。低いほど強い集中が生じている。<br><br>
+      <b style="color:var(--purple)">ΔRs・ΔSI（爻ごと）</b>：各爻を変爻したとき（陰↔陽を反転したとき）の卦のRs・SI変化量。プラスなら変爻先の方が不安定・孤立、マイナスなら安定・中心に近づく。◆マークは動爻（最も確率の高い変爻）。<br><br>
+      <b style="color:var(--purple)">ΔRs・ΔSI（起点→観測）</b>：起点卦から観測卦への構造的変化量。量子ウォークがどの方向に「動いたか」を示す。
+    </div>
+
+    <div style="color:var(--green);margin-bottom:6px;font-size:11px">■ 論文・ソースコード</div>
+    <div style="margin-bottom:12px;opacity:0.85">
+      プレプリント論文（Zenodo）：<br>
+      <span style="color:var(--gold)">doi.org/10.5281/zenodo.19752622</span><br><br>
+      ソースコード（GitHub）：<br>
+      <span style="color:var(--gold)">soekikwhr-sketch.github.io/iching-analysis/</span>
+    </div>
+
+    <div style="color:var(--green);margin-bottom:6px;font-size:11px">■ 免責</div>
+    <div style="margin-bottom:16px;opacity:0.85">
+      本ツールは占いではありません。<br>
+      易経の64卦をQ₆グラフの頂点として数学的に扱い、量子ウォークの確率分布に従って卦を観測する<b style="color:var(--gold)">構造的サンプリング</b>です。<br><br>
+      結果に意味の付与は行っていません。
+    </div>
+
+    <button onclick="document.getElementById('infoModal').style.display='none'"
+      style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:8px;cursor:pointer">
+      閉じる
+    </button>
+  </div>
+</div>
 
 <div class="result" id="result" style="display:none">
 
   <!-- 卦名 -->
   <div class="kua-main" id="kuaMain">
+    <div id="initKuaLabel" style="font-size:10px;color:#445;margin-bottom:6px;letter-spacing:1px">起点：—</div>
     <div class="kua-name" id="kuaName">—</div>
+    <div id="kuaEn" style="font-size:11px;color:var(--green);margin-top:4px;letter-spacing:1px;text-shadow:0 0 6px var(--green)">—</div>
     <div class="kua-kw" id="kuaKw">—</div>
     <div style="margin-top:8px">
       <div class="yao-wrap" id="yaoWrap"></div>
@@ -185,18 +293,69 @@
     </div>
   </div>
 
+  <!-- 互卦セクション -->
+  <div class="struct" id="gokaBox">
+    <div class="struct-title">互卦</div>
+    <div style="text-align:center;padding:10px 0">
+      <div id="gokaName" style="font-family:'Noto Serif JP',serif;font-size:32px;color:var(--gold);margin-bottom:4px">—</div>
+      <div id="gokaEn" style="font-size:10px;color:var(--green);margin-bottom:6px;text-shadow:0 0 5px var(--green)">—</div>
+      <div id="gokaKw" style="font-size:10px;color:#445;margin-bottom:10px">—</div>
+      <div style="display:flex;justify-content:center;gap:20px;font-size:11px">
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">Rs</div>
+          <div id="gokaRsVal" style="color:var(--text)">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">SI</div>
+          <div id="gokaSiVal" style="color:var(--text)">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">ΔRs</div>
+          <div id="gokaRsDelta">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">ΔSI</div>
+          <div id="gokaSiDelta">—</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:#334;margin-top:4px">2〜4爻で内卦、3〜5爻で外卦を構成した派生卦</div>
+  </div>
+
+  <!-- 変卦セクション -->
+  <div class="struct" id="henkaBox">
+    <div class="struct-title">変卦</div>
+    <div style="text-align:center;padding:10px 0">
+      <div id="henkaName" style="font-family:'Noto Serif JP',serif;font-size:32px;color:var(--gold);margin-bottom:4px">—</div>
+      <div id="henkaEn" style="font-size:10px;color:var(--green);margin-bottom:6px;text-shadow:0 0 5px var(--green)">—</div>
+      <div id="henkaKw" style="font-size:10px;color:#445;margin-bottom:10px">—</div>
+      <div style="display:flex;justify-content:center;gap:20px;font-size:11px">
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">Rs</div>
+          <div id="henkaRsVal" style="color:var(--text)">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">SI</div>
+          <div id="henkaSiVal" style="color:var(--text)">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">ΔRs</div>
+          <div id="henkaRsDelta">—</div>
+        </div>
+        <div>
+          <div style="color:#445;font-size:9px;margin-bottom:2px">ΔSI</div>
+          <div id="henkaSiDelta">—</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:#334;margin-top:4px">動爻（◆）を変爻した卦</div>
+  </div>
+
   <!-- 観測時の確率分布ミニグリッド -->
   <div class="struct">
     <div class="struct-title">確率分布 TOP10（観測時 t）</div>
     <div class="mini-grid" id="miniGrid"></div>
     <div style="font-size:9px;color:#334;margin-top:6px">橙=既済 青=未済 金=今回の観測 ► 印</div>
-  </div>
-
-  <!-- クラスタ分布 -->
-  <div class="struct" id="clusterBox">
-    <div class="struct-title">クラスタ分布（k=2）</div>
-    <div id="clusterRows"></div>
-    <div style="font-size:9px;color:#334;margin-top:4px">観測卦が属するクラスタを強調表示</div>
   </div>
 
   <!-- 3D/2D可視化 -->
@@ -225,6 +384,8 @@
 <script>
 // ── DATA ──────────────────────────────────────────────
 const KN=["乾","坤","屯","蒙","需","訟","師","比","小畜","履","泰","否","同人","大有","謙","豫","随","蠱","臨","観","噬嗑","賁","剥","復","無妄","大畜","頤","大過","坎","離","咸","恒","遯","大壮","晋","明夷","家人","睽","蹇","解","損","益","夬","姤","萃","升","困","井","革","鼎","震","艮","漸","帰妹","豊","旅","巽","兌","渙","節","中孚","小過","既済","未済"];
+const EN_PINYIN=["Qián","Kūn","Zhūn","Méng","Xū","Sòng","Shī","Bǐ","Xiǎo Chù","Lǚ","Tài","Pǐ","Tóng Rén","Dà Yǒu","Qiān","Yù","Suí","Gǔ","Lín","Guān","Shì Kè","Bì","Bō","Fù","Wú Wàng","Dà Chù","Yí","Dà Guò","Kǎn","Lí","Xián","Héng","Dùn","Dà Zhuàng","Jìn","Míng Yí","Jiā Rén","Kuí","Jiǎn","Jiě","Sǔn","Yì","Guài","Gòu","Cuì","Shēng","Kùn","Jǐng","Gé","Dǐng","Zhèn","Gèn","Jiàn","Guī Mèi","Fēng","Lǚ","Xùn","Duì","Huàn","Jié","Zhōng Fú","Xiǎo Guò","Jì Jì","Wèi Jì"];
+const EN_MEANING=["The Creative","The Receptive","Difficulty at the Beginning","Youthful Folly","Waiting","Conflict","The Army","Holding Together","Small Taming","Treading","Peace","Standstill","Fellowship","Great Possession","Modesty","Enthusiasm","Following","Work on the Decayed","Approach","Contemplation","Biting Through","Grace","Splitting Apart","Return","Innocence","Great Taming","Nourishment","Preponderance of the Great","The Abysmal","The Clinging","Influence","Duration","Retreat","Power of the Great","Progress","Darkening of the Light","The Family","Opposition","Obstruction","Deliverance","Decrease","Increase","Breakthrough","Coming to Meet","Gathering","Pushing Upward","Oppression","The Well","Revolution","The Cauldron","Shock","Keeping Still","Development","The Marrying Maiden","Abundance","The Wanderer","The Gentle","The Joyous","Dispersion","Limitation","Inner Truth","Small Preponderance","After Completion","Before Completion"];
 const BITS=[[1,1,1,1,1,1],[0,0,0,0,0,0],[1,0,0,0,1,0],[0,1,0,0,0,1],[1,1,1,0,1,0],[0,1,0,1,1,1],[0,1,0,0,0,0],[0,0,0,0,1,0],[1,1,1,0,1,1],[1,1,0,1,1,1],[1,1,1,0,0,0],[0,0,0,1,1,1],[1,0,1,1,1,1],[1,1,1,1,0,1],[0,0,1,0,0,0],[0,0,0,1,0,0],[1,0,0,1,1,0],[0,1,1,0,0,1],[1,1,0,0,0,0],[0,0,0,0,1,1],[1,0,0,1,0,1],[1,0,1,0,0,1],[0,0,0,0,0,1],[1,0,0,0,0,0],[1,0,0,1,1,1],[1,1,1,0,0,1],[1,0,0,0,0,1],[0,1,1,1,1,0],[0,1,0,0,1,0],[1,0,1,1,0,1],[0,0,1,1,1,0],[0,1,1,1,0,0],[0,0,1,1,1,1],[1,1,1,1,0,0],[0,0,0,1,0,1],[1,0,1,0,0,0],[1,0,1,0,1,1],[1,1,0,1,0,1],[0,0,1,0,1,0],[0,1,0,1,0,0],[1,1,0,0,0,1],[1,0,0,0,1,1],[1,1,1,1,1,0],[0,1,1,1,1,1],[0,0,0,1,1,0],[0,1,1,0,0,0],[0,1,0,1,1,0],[0,1,1,0,1,0],[1,0,1,1,1,0],[0,1,1,1,0,1],[1,0,0,1,0,0],[0,0,1,0,0,1],[0,0,1,0,1,1],[1,1,0,1,0,0],[1,0,1,1,0,0],[0,0,1,1,0,1],[0,1,1,0,1,1],[1,1,0,1,1,0],[0,1,0,0,1,1],[1,1,0,0,1,0],[1,1,0,0,1,1],[0,0,1,1,0,0],[1,0,1,0,1,0],[0,1,0,1,0,1]];
 const RS=[0.0,0.0,0.4929,0.2633,0.7990,0.5694,0.1755,0.4051,0.7112,0.4816,0.4194,0.4194,0.1755,0.4051,0.4816,0.7112,0.5694,0.5694,0.0878,0.3173,0.8867,0.6571,0.0878,0.0878,0.4816,0.4816,0.1755,0.1755,0.5806,0.5806,0.1755,0.4051,0.0878,0.3173,0.7990,0.5694,0.8867,0.8867,0.8867,0.8867,0.1755,0.4051,0.0878,0.0878,0.4816,0.4816,0.6571,0.8867,0.2633,0.4929,0.7990,0.5694,0.7990,0.7990,0.4929,0.4929,0.7990,0.5694,0.4929,0.4929,0.4051,0.4051,1.0,1.0];
 const SI=[0.0,0.0,0.4615,0.4672,0.4315,0.4737,0.3361,0.6737,0.2759,0.2856,0.2042,0.1643,0.3064,0.4098,0.6281,0.3517,0.4704,0.4704,0.1577,0.2914,0.6144,0.5704,0.1392,0.1712,0.3093,0.3112,0.3660,0.3110,0.5134,0.5134,0.3195,0.2944,0.1936,0.1288,0.3991,0.7389,0.5176,1.0,0.4683,0.5176,0.3699,0.2592,0.3370,0.1853,0.3112,0.3526,0.5206,0.5501,0.5583,0.3446,0.4749,0.5903,0.8491,0.7961,0.3880,0.5477,0.5144,0.8529,0.3922,0.5477,0.4714,0.3248,0.6908,0.8125];
@@ -564,16 +725,14 @@ function initCanvas3d(){
 }
 
 // クラスタラベル（KW1〜64順、0-indexed）
-const LABELS_2=[0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,1,0,1,0,1,0,0,1,0,0,0,0,1,1,0,1,1,1,0,1,0,0,0,1,1,0,0,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,0,1,0,0,1,0,1];
-const LABELS_4=[0,1,0,1,3,2,1,1,0,0,3,2,0,0,3,1,0,2,1,1,1,0,1,1,0,0,1,2,2,0,3,2,2,3,1,3,0,1,3,2,1,0,3,2,2,3,2,3,3,2,1,1,0,1,3,2,2,0,2,0,0,3,3,2];
-const CLUSTER2_NAMES=['クラスタA','クラスタB'];
-const CLUSTER4_NAMES=['クラスタ0','クラスタ1','クラスタ2','クラスタ3'];
-const CLUSTER_COLORS=['#44dd88','#4488ff','#ffcc44','#ff5566'];
+
+
 
 function b2i(b){let v=0;for(let k=0;k<6;k++)v|=(b[k]<<k);return v;}
 const K2G=new Array(64),G2K=new Array(64);
 for(let k=0;k<64;k++){const g=b2i(BITS[k]);K2G[k]=g;G2K[g]=k;}
 const gN=g=>KN[G2K[g]], gR=g=>RS[G2K[g]], gS=g=>SI[G2K[g]], gK=g=>G2K[g];
+const gEn=g=>`${EN_PINYIN[G2K[g]]} / ${EN_MEANING[G2K[g]]}`;
 const KISEI=K2G[62], MIZAI=K2G[63], KEN=K2G[0], KON=K2G[1];
 
 const NBS=[];
@@ -668,15 +827,7 @@ function rk4Step(psiR,psiI,dt){
 }
 
 // ── 量子観測 ──────────────────────────────────────
-// ── 干支定義 ──────────────────────────────────────
-const KAN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-const SHI=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-
-function kanshi(now){
-  const kan = now % 10;
-  const shi = now % 12;
-  return {kan, shi, name: KAN[kan]+SHI[shi], u: kan*12+shi};
-}
+// ── quantumObserve ───────────────────────────────────
 
 // Walsh基底ベクトル（グリッドインデックスm→64次元ベクトル）
 function walshVec(m){
@@ -693,9 +844,6 @@ function walshVec(m){
 
 function quantumObserve(){
   const now = Date.now();
-
-  // 干支（表示用）
-  const ks = kanshi(now);
 
   // 初期状態：δ（now%64の1点集中）
   const initG = now % 64;
@@ -720,7 +868,7 @@ function quantumObserve(){
   let cum=0, selected=0;
   for(let i=0;i<64;i++){cum+=prob[i];if(r<cum){selected=i;break;}}
 
-  return {selected, prob, t, initG, now, kanshi: ks};
+  return {selected, prob, t, initG, now};
 }
 
 // ── 履歴 ──────────────────────────────────────────
@@ -730,12 +878,12 @@ const history=[];
 function observe(){
   const btn=document.getElementById('obsBtn');
   btn.classList.add('firing');
-  btn.textContent='観測中...';
+  btn.textContent='立卦中...';
 
   setTimeout(()=>{
-    const {selected:g, prob, t, initG, now, kanshi}=quantumObserve();
+    const {selected:g, prob, t, initG, now}=quantumObserve();
     btn.classList.remove('firing');
-    btn.textContent='観　測';
+    btn.textContent='立　卦';
 
     // 履歴
     history.unshift({g, name:gN(g), kw:gK(g)+1});
@@ -744,7 +892,7 @@ function observe(){
 
     // 表示
     document.getElementById('result').style.display='flex';
-    renderResult(g, prob, t, initG, now, kanshi);
+    renderResult(g, prob, t, initG, now);
 
     // パルスアニメ
     const el=document.getElementById('kuaName');
@@ -754,7 +902,7 @@ function observe(){
   }, 80);
 }
 
-function renderResult(g, prob, t, initG, now, kanshi){
+function renderResult(g, prob, t, initG, now){
   const currentNow=now||Date.now();
   const kw=gK(g), bits=BITS[kw];
   const rs=gR(g), si=gS(g);
@@ -763,8 +911,11 @@ function renderResult(g, prob, t, initG, now, kanshi){
 
   // 卦名
   document.getElementById('kuaName').textContent=gN(g);
-  const ksName = kanshi ? kanshi.name : '';
-  document.getElementById('kuaKw').textContent=`KW${kw+1}　${g.toString(2).padStart(6,'0')}　t=${t.toFixed(2)}　${ksName}`;
+  document.getElementById('kuaEn').textContent=gEn(g);
+  document.getElementById('kuaKw').textContent=`KW${kw+1}　${g.toString(2).padStart(6,'0')}　t=${t.toFixed(2)}`;
+  if(initG!==undefined){
+    document.getElementById('initKuaLabel').textContent=`起点：${gN(initG)}`;
+  }
 
   // 爻ビジュアル（b5=上爻→b0=初爻）
   const yaoWrap=document.getElementById('yaoWrap');
@@ -803,6 +954,45 @@ function renderResult(g, prob, t, initG, now, kanshi){
   // 確率→最大爻が動爻
   const yaoProb=Array.from({length:6},(_,j)=>yr[j]*yr[j]+yi[j]*yi[j]);
   const movingYao=yaoProb.indexOf(Math.max(...yaoProb));
+
+  // 互卦：2〜4爻で内卦、3〜5爻で外卦
+  const bArr = bits;
+  const gokaG = (bArr[4]<<5)|(bArr[3]<<4)|(bArr[2]<<3)|(bArr[3]<<2)|(bArr[2]<<1)|(bArr[1]);
+  const gokaKw = G2K[gokaG];
+  const gokaRs = RS[gokaKw];
+  const gokaSi = SI[gokaKw];
+  const dGokaRs = gokaRs - rs;
+  const dGokaSi = gokaSi - si;
+  const dGokaRsStr = (dGokaRs>=0?'+':'')+dGokaRs.toFixed(3);
+  const dGokaSiStr = (dGokaSi>=0?'+':'')+dGokaSi.toFixed(3);
+  const dGokaRsCol = dGokaRs>0?'#ff8844':dGokaRs<0?'#44dd88':'#445';
+  const dGokaSiCol = dGokaSi>0?'#ff6688':dGokaSi<0?'#44ddcc':'#445';
+  document.getElementById('gokaName').textContent = gN(gokaG);
+  document.getElementById('gokaEn').textContent = gEn(gokaG);
+  document.getElementById('gokaKw').textContent = `KW${gokaKw+1}　${gokaG.toString(2).padStart(6,'0')}`;
+  document.getElementById('gokaRsVal').textContent = gokaRs.toFixed(3);
+  document.getElementById('gokaSiVal').textContent = gokaSi.toFixed(3);
+  document.getElementById('gokaRsDelta').innerHTML = `<span style="color:${dGokaRsCol}">${dGokaRsStr}</span>`;
+  document.getElementById('gokaSiDelta').innerHTML = `<span style="color:${dGokaSiCol}">${dGokaSiStr}</span>`;
+
+  // 変卦：動爻を変爻した卦
+  const henkaG = g ^ (1 << movingYao);
+  const henkaKw = G2K[henkaG];
+  const henkaRs = RS[henkaKw];
+  const henkaSi = SI[henkaKw];
+  const dHenkaRs = henkaRs - rs;
+  const dHenkaSi = henkaSi - si;
+  const dHenkaRsStr = (dHenkaRs>=0?'+':'')+dHenkaRs.toFixed(3);
+  const dHenkaSiStr = (dHenkaSi>=0?'+':'')+dHenkaSi.toFixed(3);
+  const dHenkaRsCol = dHenkaRs>0?'#ff8844':dHenkaRs<0?'#44dd88':'#445';
+  const dHenkaSiCol = dHenkaSi>0?'#ff6688':dHenkaSi<0?'#44ddcc':'#445';
+  document.getElementById('henkaName').textContent = gN(henkaG);
+  document.getElementById('henkaEn').textContent = gEn(henkaG);
+  document.getElementById('henkaKw').textContent = `KW${henkaKw+1}　${henkaG.toString(2).padStart(6,'0')}`;
+  document.getElementById('henkaRsVal').textContent = henkaRs.toFixed(3);
+  document.getElementById('henkaSiVal').textContent = henkaSi.toFixed(3);
+  document.getElementById('henkaRsDelta').innerHTML = `<span style="color:${dHenkaRsCol}">${dHenkaRsStr}</span>`;
+  document.getElementById('henkaSiDelta').innerHTML = `<span style="color:${dHenkaSiCol}">${dHenkaSiStr}</span>`;
 
   yaoWrap.innerHTML='';
   for(let b=5;b>=0;b--){
@@ -849,7 +1039,8 @@ function renderResult(g, prob, t, initG, now, kanshi){
     // ΔRs・ΔSI（動爻は強調）
     const delta=document.createElement('span');
     delta.style.cssText=`font-size:9px;white-space:nowrap;margin-left:4px;flex-shrink:0;${isMoving?'font-weight:bold;':'opacity:0.5;'}`;
-    delta.innerHTML=`<span style="color:${dRsBCol}">Rs${dRsBStr}</span> <span style="color:${dSiBCol}">SI${dSiBStr}</span>${isMoving?' ◆':''}`;
+    const movedName = isMoving ? gN(neighborG) : '';
+    delta.innerHTML=`<span style="color:${dRsBCol}">ΔRs${dRsBStr}</span> <span style="color:${dSiBCol}">ΔSI${dSiBStr}</span>${isMoving?` ◆<span style="color:var(--gold);font-size:8px">動爻</span> <span style="color:var(--gold);font-size:9px">→ ${movedName}</span>`:''}`;
     row.appendChild(delta);
 
     yaoWrap.appendChild(row);
@@ -937,58 +1128,6 @@ function renderResult(g, prob, t, initG, now, kanshi){
   const eCol=concentration>50?'#ff8844':concentration>20?'#ffcc44':'#44dd88';
   document.getElementById('entropyBar').style.cssText=`width:${concentration}%;background:${eCol}`;
 
-  // ── クラスタ分布 ──
-  const kwG=G2K[g]; // 観測卦のKWインデックス
-  const selCluster2=LABELS_2[kwG];
-  const selCluster4=LABELS_4[kwG];
-
-  // クラスタごとの確率合計（k=2）
-  const cProb2=[0,0];
-  for(let i=0;i<64;i++) cProb2[LABELS_2[G2K[i]]]+=prob[i];
-
-  // クラスタごとの確率合計（k=4）
-  const cProb4=[0,0,0,0];
-  for(let i=0;i<64;i++) cProb4[LABELS_4[G2K[i]]]+=prob[i];
-
-  const clEl=document.getElementById('clusterRows'); clEl.innerHTML='';
-
-  // k=2
-  const h2=document.createElement('div');
-  h2.style.cssText='font-size:9px;color:var(--text);margin-bottom:4px;margin-top:2px';
-  h2.textContent='k=2 クラスタ';
-  clEl.appendChild(h2);
-
-  cProb2.forEach((p,c)=>{
-    const isSel=c===selCluster2;
-    const col=c===0?'#44dd88':'#4488ff';
-    const row=document.createElement('div');
-    row.style.cssText=`display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #0d0d1a;font-size:10px;${isSel?'border-left:2px solid '+col+';padding-left:4px':''}`;
-    row.innerHTML=`
-      <span style="width:60px;color:${isSel?col:'var(--text)'};flex-shrink:0">${isSel?'►':''} C${c}</span>
-      <div style="flex:1;height:6px;background:#111;min-width:0"><div style="height:6px;width:${p*100}%;background:${col};opacity:${isSel?1:0.4}"></div></div>
-      <span style="width:44px;text-align:right;color:${isSel?col:'#445'};flex-shrink:0">${(p*100).toFixed(1)}%</span>
-    `;
-    clEl.appendChild(row);
-  });
-
-  // k=4
-  const h4=document.createElement('div');
-  h4.style.cssText='font-size:9px;color:var(--text);margin-top:8px;margin-bottom:4px';
-  h4.textContent='k=4 クラスタ';
-  clEl.appendChild(h4);
-
-  cProb4.forEach((p,c)=>{
-    const isSel=c===selCluster4;
-    const col=CLUSTER_COLORS[c];
-    const row=document.createElement('div');
-    row.style.cssText=`display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #0d0d1a;font-size:10px;${isSel?'border-left:2px solid '+col+';padding-left:4px':''}`;
-    row.innerHTML=`
-      <span style="width:60px;color:${isSel?col:'var(--text)'};flex-shrink:0">${isSel?'►':''} C${c}</span>
-      <div style="flex:1;height:6px;background:#111;min-width:0"><div style="height:6px;width:${p*100}%;background:${col};opacity:${isSel?1:0.4}"></div></div>
-      <span style="width:44px;text-align:right;color:${isSel?col:'#445'};flex-shrink:0">${(p*100).toFixed(1)}%</span>
-    `;
-    clEl.appendChild(row);
-  });
   // ── 3D描画 ──
   currentG3d=g;
   currentProb3d=prob;
